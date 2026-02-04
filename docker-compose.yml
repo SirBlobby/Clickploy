@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: clickploy-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - clickploy-data:/tmp/paas-builds # Persist builds if needed
+    environment:
+      - GIN_MODE=release
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: clickploy-frontend
+    ports:
+      - "5173:4173"
+    environment:
+      - PUBLIC_API_URL=http://localhost:8080 # We usually need this client-side.
+      # Note: Since frontend is client-side rendered mostly, localhost:8080 refers to user's browser accessing backend
+      # If SSR calls backend, it needs http://backend:8080.
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  clickploy-data:

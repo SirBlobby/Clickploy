@@ -1,0 +1,491 @@
+<script lang="ts">
+	import { user, logout } from "$lib/auth";
+	import { listProjects, createProject, type Project } from "$lib/api";
+	import { Button } from "$lib/components/ui/button";
+	import { Input } from "$lib/components/ui/input";
+	import { Label } from "$lib/components/ui/label";
+	import {
+		Card,
+		CardContent,
+		CardHeader,
+		CardTitle,
+		CardDescription,
+	} from "$lib/components/ui/card";
+	import * as Dialog from "$lib/components/ui/dialog";
+	import {
+		Loader2,
+		Plus,
+		Github,
+		LogOut,
+		Terminal,
+		Activity,
+		Settings,
+		ChevronsUpDown,
+		ExternalLink,
+	} from "@lucide/svelte";
+	import * as Collapsible from "$lib/components/ui/collapsible";
+	import * as Select from "$lib/components/ui/select";
+	import { onMount } from "svelte";
+
+	let projects: Project[] = $state([]);
+	let loading = $state(true);
+	let newProjectOpen = $state(false);
+
+	let repo = $state("https://github.com/heroku/node-js-sample");
+	let name = $state("");
+	let port = $state("");
+	let gitToken = $state("");
+	let buildCommand = $state("");
+	let startCommand = $state("");
+	let installCommand = $state("");
+	let runtime = $state("nodejs");
+	let envVars = $state([{ key: "", value: "" }]);
+	let deploying = $state(false);
+	let createdProject = $state<any>(null);
+
+	onMount(async () => {
+		if ($user) {
+			const res = await listProjects();
+			if (res) projects = res;
+		}
+		loading = false;
+	});
+
+	function addEnvVar() {
+		envVars = [...envVars, { key: "", value: "" }];
+	}
+
+	function removeEnvVar(index: number) {
+		envVars = envVars.filter((_, i) => i !== index);
+	}
+
+	async function handleDeploy() {
+		if (!repo || !name) return;
+		deploying = true;
+
+		const p = port ? parseInt(port) : undefined;
+		const envMap: Record<string, string> = {};
+		for (const e of envVars) {
+			if (e.key) envMap[e.key] = e.value;
+		}
+
+		const res = await createProject(
+			repo,
+			name,
+			p,
+			envMap,
+			gitToken,
+			buildCommand,
+			startCommand,
+			installCommand,
+			runtime,
+		);
+		if (res) {
+			projects = [...projects, res];
+			createdProject = res;
+		}
+		deploying = false;
+	}
+
+	$effect(() => {
+		if (!newProjectOpen) {
+			setTimeout(() => {
+				createdProject = null;
+				repo = "";
+				name = "";
+				port = "";
+				gitToken = "";
+				buildCommand = "";
+				startCommand = "";
+				installCommand = "";
+				runtime = "nodejs";
+				envVars = [{ key: "", value: "" }];
+			}, 200);
+		}
+	});
+</script>
+
+<div class="container mx-auto py-10 px-4">
+	{#if !$user}
+		<div
+			class="flex flex-col items-center justify-center space-y-10 py-20 text-center"
+		>
+			Deploy with <span
+				class="bg-linear-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent"
+				>One Click</span
+			>.
+			<p class="max-w-[600px] text-muted-foreground text-xl">
+				The simplified PaaS for your personal projects. Push, build, and scale
+				without the complexity.
+			</p>
+			<div class="flex gap-4">
+				<Button href="/login" size="lg">Get Started</Button>
+				<Button href="https://github.com/clickploy" variant="outline" size="lg">
+					<Github class="mr-2 h-4 w-4" /> GitHub
+				</Button>
+			</div>
+		</div>
+	{:else}
+		<div class="flex items-center justify-between mb-8">
+			<div>
+				<h2 class="text-2xl font-bold tracking-tight">Overview</h2>
+				<p class="text-muted-foreground">Manage your deployed applications.</p>
+			</div>
+			<div class="flex gap-2">
+				<Button variant="outline" href="/activity">
+					<Activity class="mr-2 h-4 w-4" /> Activity
+				</Button>
+				<Dialog.Root bind:open={newProjectOpen}>
+					<Dialog.Trigger>
+						<Button>
+							<Plus class="mr-2 h-4 w-4" /> New Project
+						</Button>
+					</Dialog.Trigger>
+					<Dialog.Content class="sm:max-w-[500px] max-h-[85vh] overflow-y-auto">
+						<Dialog.Header>
+							<Dialog.Title>Deploy Project</Dialog.Title>
+							<Dialog.Description>
+								Enter repository details to start a new deployment.
+							</Dialog.Description>
+						</Dialog.Header>
+						<div class="grid gap-4 py-4">
+							{#if createdProject}
+								<div class="space-y-4">
+									<div
+										class="rounded-md bg-green-50 p-4 text-green-900 border border-green-200"
+									>
+										<h4 class="font-bold flex items-center gap-2">
+											<div class="h-2 w-2 rounded-full bg-green-500"></div>
+											Project Created Successfully!
+										</h4>
+									</div>
+
+									<div class="space-y-2">
+										<Label>Webhook URL</Label>
+										<div class="flex items-center gap-2">
+											<Input
+												readonly
+												value={`http://localhost:8080/webhooks/trigger?project_id=${createdProject.ID}`}
+											/>
+											<Button
+												variant="outline"
+												size="icon"
+												onclick={() =>
+													navigator.clipboard.writeText(
+														`http://localhost:8080/webhooks/trigger?project_id=${createdProject.ID}`,
+													)}
+											>
+												Copy
+											</Button>
+										</div>
+										<p class="text-xs text-muted-foreground">
+											Add this to your Git provider's webhook settings.
+										</p>
+									</div>
+
+									<div class="space-y-2">
+										<Label>Webhook Secret</Label>
+										<div class="flex items-center gap-2">
+											<Input readonly value={createdProject.webhook_secret} />
+											<Button
+												variant="outline"
+												size="icon"
+												onclick={() =>
+													navigator.clipboard.writeText(
+														createdProject.webhook_secret,
+													)}
+											>
+												Copy
+											</Button>
+										</div>
+									</div>
+
+									<Button
+										class="w-full"
+										onclick={() => (newProjectOpen = false)}>Done</Button
+									>
+								</div>
+							{:else}
+								<div class="grid gap-2">
+									<Label for="repo"
+										>Repository URL <span class="text-red-500">*</span></Label
+									>
+									<Input
+										id="repo"
+										bind:value={repo}
+										placeholder="https://github.com/username/repo"
+									/>
+								</div>
+								<div class="grid gap-2">
+									<Label for="name"
+										>App Name <span class="text-red-500">*</span></Label
+									>
+									<Input id="name" placeholder="my-app" bind:value={name} />
+								</div>
+								<div class="grid gap-2">
+									<Label for="port">Port (Optional)</Label>
+									<Input id="port" placeholder="Auto" bind:value={port} />
+								</div>
+
+								<div class="grid gap-2">
+									<Label>Runtime / Package Manager</Label>
+									<Select.Root type="single" bind:value={runtime}>
+										<Select.Trigger class="w-full">
+											{runtime === "nodejs"
+												? "Node.js (npm)"
+												: runtime === "bun"
+													? "Bun"
+													: runtime === "deno"
+														? "Deno"
+														: runtime === "pnpm"
+															? "Node.js (pnpm)"
+															: "Select runtime"}
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Item value="nodejs">Node.js (npm)</Select.Item>
+											<Select.Item value="bun">Bun</Select.Item>
+											<Select.Item value="deno">Deno</Select.Item>
+											<Select.Item value="pnpm">Node.js (pnpm)</Select.Item>
+										</Select.Content>
+									</Select.Root>
+								</div>
+
+								<div class="grid gap-2">
+									<Label for="token">Git Token (Private Repo)</Label>
+									<Input
+										id="token"
+										type="password"
+										placeholder="ghp_..."
+										bind:value={gitToken}
+									/>
+								</div>
+
+								<div class="border-t pt-4 mt-2">
+									<Collapsible.Root>
+										<Collapsible.Trigger
+											class="flex items-center justify-between w-full"
+										>
+											<div class="text-left">
+												<Label class="text-base font-semibold cursor-pointer"
+													>Build & Development Settings</Label
+												>
+												<p class="text-xs text-muted-foreground">
+													Override default build commands.
+												</p>
+											</div>
+											<ChevronsUpDown class="h-4 w-4 text-muted-foreground" />
+										</Collapsible.Trigger>
+										<Collapsible.Content class="space-y-3 pt-4">
+											<div class="grid gap-2">
+												<Label for="buildConfig">Build Command</Label>
+												<Input
+													id="buildConfig"
+													placeholder="npm run build"
+													bind:value={buildCommand}
+												/>
+											</div>
+											<div class="grid gap-2">
+												<Label for="startConfig">Start Command</Label>
+												<Input
+													id="startConfig"
+													placeholder="npm run start"
+													bind:value={startCommand}
+												/>
+											</div>
+											<div class="grid gap-2">
+												<Label for="installConfig">Install Command</Label>
+												<Input
+													id="installConfig"
+													placeholder="npm install"
+													bind:value={installCommand}
+												/>
+											</div>
+										</Collapsible.Content>
+									</Collapsible.Root>
+								</div>
+
+								<div class="border-t pt-4 mt-2">
+									<Collapsible.Root>
+										<Collapsible.Trigger
+											class="flex items-center justify-between w-full"
+										>
+											<div class="text-left">
+												<Label class="text-base font-semibold cursor-pointer"
+													>Environment Variables</Label
+												>
+												<p class="text-xs text-muted-foreground">
+													Configure runtime environment variables.
+												</p>
+											</div>
+											<ChevronsUpDown class="h-4 w-4 text-muted-foreground" />
+										</Collapsible.Trigger>
+										<Collapsible.Content class="space-y-2 pt-4">
+											{#each envVars as env, i}
+												<div class="flex gap-2">
+													<Input placeholder="Key" bind:value={env.key} />
+													<Input placeholder="Value" bind:value={env.value} />
+													<Button
+														variant="ghost"
+														size="icon"
+														onclick={() => removeEnvVar(i)}
+													>
+														<LogOut class="h-4 w-4 rotate-45" />
+													</Button>
+												</div>
+											{/each}
+											<Button
+												variant="outline"
+												size="sm"
+												onclick={addEnvVar}
+												class="w-full"
+											>
+												<Plus class="mr-2 h-4 w-4" /> Add Variable
+											</Button>
+										</Collapsible.Content>
+									</Collapsible.Root>
+								</div>
+							{/if}
+						</div>
+						{#if !createdProject}
+							<Dialog.Footer>
+								<Button onclick={handleDeploy} disabled={deploying}>
+									{#if deploying}
+										<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+										Deploying...
+									{:else}
+										Deploy
+									{/if}
+								</Button>
+							</Dialog.Footer>
+						{/if}
+					</Dialog.Content>
+				</Dialog.Root>
+			</div>
+		</div>
+
+		{#if loading}
+			<div class="flex justify-center p-10">
+				<Loader2 class="h-8 w-8 animate-spin" />
+			</div>
+		{:else if projects.length === 0}
+			<div
+				class="flex h-[450px] shrink-0 items-center justify-center rounded-md border border-dashed"
+			>
+				<div
+					class="mx-auto flex max-w-[420px] flex-col items-center justify-center text-center"
+				>
+					<h3 class="mt-4 text-lg font-semibold">No projects created</h3>
+					<p class="mb-4 mt-2 text-sm text-muted-foreground">
+						You haven't deployed any projects yet.
+					</p>
+					<Button onclick={() => (newProjectOpen = true)}>
+						<Plus class="mr-2 h-4 w-4" /> Add Project
+					</Button>
+				</div>
+			</div>
+		{:else}
+			<div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+				{#each projects as project}
+					{@const latestDeployment = project.deployments?.[0]}
+					{@const status = latestDeployment?.status || "unknown"}
+					<Card
+						class="group hover:shadow-lg transition-all duration-300 border-muted/60 hover:border-primary/50 cursor-pointer overflow-hidden relative"
+					>
+						<a href={`/projects/${project.ID}`} class="block h-full">
+							<CardHeader class="pb-3">
+								<div class="flex items-start justify-between">
+									<div class="space-y-1">
+										<CardTitle class="text-xl flex items-center gap-2">
+											{project.name}
+										</CardTitle>
+										<CardDescription class="flex items-center gap-1">
+											<Github class="h-3 w-3" />
+											{new URL(project.repo_url).pathname.slice(1)}
+										</CardDescription>
+									</div>
+									<span
+										class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold capitalize
+										{status === 'live'
+											? 'border-transparent bg-green-500/15 text-green-500'
+											: status === 'failed'
+												? 'border-transparent bg-red-500/15 text-red-500'
+												: status === 'building'
+													? 'border-transparent bg-yellow-500/15 text-yellow-500'
+													: 'border-transparent bg-gray-500/15 text-gray-400'}"
+									>
+										{status}
+									</span>
+								</div>
+							</CardHeader>
+							<CardContent>
+								<div
+									class="grid grid-cols-2 gap-4 text-sm text-muted-foreground mb-6"
+								>
+									<div class="flex flex-col gap-1">
+										<span class="text-xs uppercase tracking-wider opacity-70"
+											>Port</span
+										>
+										<span class="font-mono text-foreground">{project.port}</span
+										>
+									</div>
+									<div class="flex flex-col gap-1">
+										<span class="text-xs uppercase tracking-wider opacity-70"
+											>Runtime</span
+										>
+										<div class="flex items-center gap-1.5">
+											<span class="font-medium text-foreground capitalize"
+												>{project.runtime || "nodejs"}</span
+											>
+										</div>
+									</div>
+									<div class="flex flex-col gap-1">
+										<span class="text-xs uppercase tracking-wider opacity-70"
+											>Deployments</span
+										>
+										<span class="font-medium text-foreground"
+											>{project.deployments?.length || 0}</span
+										>
+									</div>
+									<div class="flex flex-col gap-1">
+										<span class="text-xs uppercase tracking-wider opacity-70"
+											>Last Updated</span
+										>
+										<span class="font-medium text-foreground truncate">
+											{latestDeployment
+												? new Date(
+														latestDeployment.CreatedAt,
+													).toLocaleDateString()
+												: "Never"}
+										</span>
+									</div>
+								</div>
+
+								<div class="flex gap-2 mt-auto">
+									<Button
+										variant="secondary"
+										class="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+										href={`/projects/${project.ID}`}
+									>
+										Manage
+									</Button>
+									{#if status === "live" && latestDeployment?.url}
+										<Button
+											variant="outline"
+											size="icon"
+											href={latestDeployment.url}
+											target="_blank"
+											onclick={(e) => e.stopPropagation()}
+											title="Visit App"
+										>
+											<ExternalLink class="h-4 w-4" />
+										</Button>
+									{/if}
+								</div>
+							</CardContent>
+						</a>
+					</Card>
+				{/each}
+			</div>
+		{/if}
+	{/if}
+</div>

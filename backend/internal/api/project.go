@@ -1,0 +1,283 @@
+package api
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+	"time"
+
+	"clickploy/internal/auth"
+	"clickploy/internal/db"
+	"clickploy/internal/models"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
+
+func (h *Handler) RegisterProjectRoutes(r *gin.Engine) {
+	protected := r.Group("/api", AuthMiddleware())
+	{
+		protected.POST("/projects", h.createProject)
+		protected.GET("/projects", h.listProjects)
+		protected.GET("/projects/:id", h.getProject)
+		protected.PUT("/projects/:id/env", h.updateProjectEnv)
+		protected.POST("/projects/:id/redeploy", h.redeployProject)
+		protected.GET("/activity", h.getActivity)
+	}
+}
+
+func (h *Handler) updateProjectEnv(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	projectID := c.Param("id")
+
+	var req struct {
+		EnvVars map[string]string `json:"env_vars"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	pid, err := strconv.ParseUint(projectID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
+		return
+	}
+
+	var project models.Project
+	if result := db.DB.Where("id = ? AND owner_id = ?", pid, userID).First(&project); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	tx := db.DB.Begin()
+	if err := tx.Where("project_id = ?", project.ID).Delete(&models.EnvVar{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update env vars"})
+		return
+	}
+
+	for k, v := range req.EnvVars {
+		envVar := models.EnvVar{
+			ProjectID: project.ID,
+			Key:       k,
+			Value:     v,
+		}
+		if err := tx.Create(&envVar).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save env var"})
+			return
+		}
+	}
+
+	tx.Commit()
+	c.JSON(http.StatusOK, gin.H{"status": "updated"})
+}
+
+func (h *Handler) redeployProject(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	projectID := c.Param("id")
+
+	pid, err := strconv.ParseUint(projectID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
+		return
+	}
+
+	var project models.Project
+	if result := db.DB.Preload("EnvVars").Where("id = ? AND owner_id = ?", pid, userID).First(&project); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+
+	deployment := models.Deployment{
+		ProjectID: project.ID,
+		Status:    "building",
+		Commit:    "MANUAL",
+		Logs:      "Starting manual redeploy...",
+	}
+	db.DB.Create(&deployment)
+
+	go func() {
+		var logBuffer bytes.Buffer
+		streamer := &StreamWriter{DeploymentID: deployment.ID}
+		multi := io.MultiWriter(&logBuffer, streamer)
+
+		envMap := make(map[string]string)
+		for _, env := range project.EnvVars {
+			envMap[env.Key] = env.Value
+		}
+
+		imageName, err := h.builder.Build(project.RepoURL, project.Name, project.GitToken, project.BuildCommand, project.StartCommand, project.InstallCommand, project.Runtime, envMap, multi)
+		deployment.Logs = logBuffer.String()
+
+		if err != nil {
+			deployment.Status = "failed"
+			deployment.Logs += fmt.Sprintf("\n\nBuild Error: %v", err)
+			db.DB.Save(&deployment)
+			return
+		}
+
+		var envStrings []string
+		for _, env := range project.EnvVars {
+			envStrings = append(envStrings, fmt.Sprintf("%s=%s", env.Key, env.Value))
+		}
+
+		containerID, err := h.deployer.RunContainer(c.Request.Context(), imageName, project.Name, project.Port, envStrings)
+		if err != nil {
+			deployment.Status = "failed"
+			deployment.Logs += fmt.Sprintf("\n\nContainer Error: %v", err)
+			db.DB.Save(&deployment)
+			return
+		}
+
+		deployment.Status = "live"
+		deployment.URL = fmt.Sprintf("http://localhost:%d", project.Port)
+		deployment.Logs += fmt.Sprintf("\n\nContainer ID: %s", containerID)
+		db.DB.Save(&deployment)
+	}()
+
+	c.JSON(http.StatusOK, gin.H{"status": "redeployment_started", "deployment_id": deployment.ID})
+}
+
+func (h *Handler) getActivity(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	var deployments []models.Deployment
+
+	err := db.DB.Joins("JOIN projects ON projects.id = deployments.project_id").
+		Where("projects.owner_id = ?", userID).
+		Order("deployments.created_at desc").
+		Limit(20).
+		Preload("Project").
+		Find(&deployments).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch activity"})
+		return
+	}
+	c.JSON(http.StatusOK, deployments)
+}
+
+func (h *Handler) createProject(c *gin.Context) {
+	userID, _ := c.Get("userID")
+
+	var req struct {
+		DeployRequest
+		EnvVars        map[string]string `json:"env_vars"`
+		BuildCommand   string            `json:"build_command"`
+		StartCommand   string            `json:"start_command"`
+		InstallCommand string            `json:"install_command"`
+		Runtime        string            `json:"runtime"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	port, err := h.ports.GetPort(req.Name, req.Port)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Port allocation failed: %v", err)})
+		return
+	}
+
+	var envVarsModel []models.EnvVar
+	var envStrings []string
+	for k, v := range req.EnvVars {
+		envStrings = append(envStrings, fmt.Sprintf("%s=%s", k, v))
+		envVarsModel = append(envVarsModel, models.EnvVar{Key: k, Value: v})
+	}
+
+	webhookSecret, _ := auth.HashPassword(fmt.Sprintf("%s-%d-%d", req.Name, userID, time.Now().UnixNano()))
+
+	project := models.Project{
+		Name:           req.Name,
+		RepoURL:        req.Repo,
+		OwnerID:        userID.(uint),
+		Port:           port,
+		WebhookSecret:  webhookSecret,
+		GitToken:       req.GitToken,
+		EnvVars:        envVarsModel,
+		BuildCommand:   req.BuildCommand,
+		StartCommand:   req.StartCommand,
+		InstallCommand: req.InstallCommand,
+		Runtime:        req.Runtime,
+	}
+
+	if result := db.DB.Create(&project); result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save project to DB"})
+		return
+	}
+
+	deployment := models.Deployment{
+		ProjectID: project.ID,
+		Status:    "building",
+		Commit:    "HEAD",
+		Logs:      "Starting build...",
+	}
+	db.DB.Create(&deployment)
+
+	go func() {
+		var logBuffer bytes.Buffer
+		streamer := &StreamWriter{DeploymentID: deployment.ID}
+		multi := io.MultiWriter(&logBuffer, streamer)
+
+		imageName, err := h.builder.Build(req.Repo, req.Name, req.GitToken, req.BuildCommand, req.StartCommand, req.InstallCommand, req.Runtime, req.EnvVars, multi)
+		deployment.Logs = logBuffer.String()
+
+		if err != nil {
+			deployment.Status = "failed"
+			deployment.Logs += fmt.Sprintf("\n\nBuild Error: %v", err)
+			db.DB.Save(&deployment)
+			return
+		}
+
+		containerID, err := h.deployer.RunContainer(c.Request.Context(), imageName, req.Name, port, envStrings)
+		if err != nil {
+			deployment.Status = "failed"
+			deployment.Logs += fmt.Sprintf("\n\nContainer Error: %v", err)
+			db.DB.Save(&deployment)
+			return
+		}
+
+		deployment.Status = "live"
+		deployment.URL = fmt.Sprintf("http://localhost:%d", port)
+		deployment.Logs += fmt.Sprintf("\n\nContainer ID: %s", containerID)
+		db.DB.Save(&deployment)
+	}()
+
+	project.Deployments = []models.Deployment{deployment}
+	c.JSON(http.StatusOK, project)
+}
+
+func (h *Handler) listProjects(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	var projects []models.Project
+	if result := db.DB.Preload("Deployments").Where("owner_id = ?", userID).Find(&projects); result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
+		return
+	}
+	c.JSON(http.StatusOK, projects)
+}
+
+func (h *Handler) getProject(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	projectID := c.Param("id")
+
+	pid, err := strconv.ParseUint(projectID, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
+		return
+	}
+
+	var project models.Project
+	if result := db.DB.Order("created_at desc").Preload("Deployments", func(db *gorm.DB) *gorm.DB {
+		return db.Order("deployments.created_at desc")
+	}).Preload("EnvVars").Where("id = ? AND owner_id = ?", pid, userID).First(&project); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+	c.JSON(http.StatusOK, project)
+}
