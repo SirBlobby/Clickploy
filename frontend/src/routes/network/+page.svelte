@@ -88,7 +88,7 @@
 											<div class="flex items-center gap-2">
 												<Server class="h-4 w-4 text-muted-foreground" />
 												<a
-													href={`/projects/${project.ID}`}
+													href={`/projects/${project.id}`}
 													class="hover:underline"
 												>
 													{project.name}

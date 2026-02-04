@@ -12,6 +12,8 @@
 		Rocket,
 		Network,
 		Database,
+		Shield,
+		Book,
 	} from "@lucide/svelte";
 	import { page } from "$app/stores";
 	import * as Sheet from "$lib/components/ui/sheet";
@@ -35,48 +37,83 @@
 
 			{#if $user}
 				<nav class="hidden md:flex items-center gap-2">
-					<Button variant="ghost" size="sm" href="/" class={isActive("/")}>
-						<LayoutDashboard class="mr-2 h-4 w-4" /> Overview
+					<Button
+						variant="ghost"
+						size="sm"
+						href="/"
+						class={`group ${isActive("/")}`}
+					>
+						<LayoutDashboard class="h-4 w-4" />
+						<span
+							class={`max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:ml-2 ${$page.url.pathname === "/" ? "max-w-xs opacity-100 ml-2" : ""}`}
+						>
+							Overview
+						</span>
 					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
 						href="/deployments"
-						class={isActive("/deployments")}
+						class={`group ${isActive("/deployments")}`}
 					>
-						<Rocket class="mr-2 h-4 w-4" /> Deployments
+						<Rocket class="h-4 w-4" />
+						<span
+							class={`max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:ml-2 ${$page.url.pathname === "/deployments" ? "max-w-xs opacity-100 ml-2" : ""}`}
+						>
+							Deployments
+						</span>
 					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
 						href="/network"
-						class={isActive("/network")}
+						class={`group ${isActive("/network")}`}
 					>
-						<Network class="mr-2 h-4 w-4" /> Network
+						<Network class="h-4 w-4" />
+						<span
+							class={`max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:ml-2 ${$page.url.pathname === "/network" ? "max-w-xs opacity-100 ml-2" : ""}`}
+						>
+							Network
+						</span>
 					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
 						href="/activity"
-						class={isActive("/activity")}
+						class={`group ${isActive("/activity")}`}
 					>
-						<Activity class="mr-2 h-4 w-4" /> Activity
+						<Activity class="h-4 w-4" />
+						<span
+							class={`max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:ml-2 ${$page.url.pathname === "/activity" ? "max-w-xs opacity-100 ml-2" : ""}`}
+						>
+							Activity
+						</span>
 					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
 						href="/storage"
-						class={isActive("/storage")}
+						class={`group ${isActive("/storage")}`}
 					>
-						<Database class="mr-2 h-4 w-4" /> Storage
+						<Database class="h-4 w-4" />
+						<span
+							class={`max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:ml-2 ${$page.url.pathname === "/storage" ? "max-w-xs opacity-100 ml-2" : ""}`}
+						>
+							Storage
+						</span>
 					</Button>
 					<Button
 						variant="ghost"
 						size="sm"
-						href="/settings"
-						class={isActive("/settings")}
+						href="/docs"
+						class={`group ${isActive("/docs")}`}
 					>
-						<Settings class="mr-2 h-4 w-4" /> Settings
+						<Book class="h-4 w-4" />
+						<span
+							class={`max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap opacity-0 group-hover:opacity-100 group-hover:ml-2 ${$page.url.pathname.startsWith("/docs") ? "max-w-xs opacity-100 ml-2" : ""}`}
+						>
+							Docs
+						</span>
 					</Button>
 				</nav>
 			{/if}
@@ -84,6 +121,26 @@
 
 		{#if $user}
 			<div class="flex items-center gap-4">
+				<nav class="hidden md:flex items-center gap-2 mr-2">
+					<Button
+						variant="ghost"
+						size="sm"
+						href="/settings"
+						class={isActive("/settings")}
+					>
+						<Settings class="h-4 w-4" />
+					</Button>
+					{#if $user.is_admin}
+						<Button
+							variant="ghost"
+							size="sm"
+							href="/admin"
+							class={isActive("/admin")}
+						>
+							<Shield class="h-4 w-4" />
+						</Button>
+					{/if}
+				</nav>
 				<div class="hidden md:flex items-center gap-2">
 					<div
 						class="h-8 w-8 rounded-full bg-linear-to-tr from-primary to-purple-500"
@@ -148,12 +205,28 @@
 									<Database class="h-5 w-5" /> Storage
 								</a>
 								<a
+									href="/docs"
+									class="flex items-center gap-2 py-2 text-lg font-medium"
+									onclick={() => (mobileOpen = false)}
+								>
+									<Book class="h-5 w-5" /> Docs
+								</a>
+								<a
 									href="/settings"
 									class="flex items-center gap-2 py-2 text-lg font-medium"
 									onclick={() => (mobileOpen = false)}
 								>
 									<Settings class="h-5 w-5" /> Settings
 								</a>
+								{#if $user.is_admin}
+									<a
+										href="/admin"
+										class="flex items-center gap-2 py-2 text-lg font-medium"
+										onclick={() => (mobileOpen = false)}
+									>
+										<Shield class="h-5 w-5" /> Admin
+									</a>
+								{/if}
 								<div class="border-t my-2"></div>
 								<div class="flex items-center gap-2 py-2">
 									<div
@@ -175,6 +248,7 @@
 			</div>
 		{:else}
 			<div class="flex gap-2">
+				<Button variant="ghost" size="sm" href="/docs">Docs</Button>
 				<Button variant="ghost" size="sm" href="/login">Login</Button>
 				<Button size="sm" href="/register">Get Started</Button>
 			</div>

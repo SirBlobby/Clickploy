@@ -16,20 +16,20 @@ func NewBuilder() *Builder {
 	return &Builder{}
 }
 
-func (b *Builder) Build(repoURL, appName, gitToken, buildCmd, startCmd, installCmd, runtime string, envVars map[string]string, logWriter io.Writer) (string, error) {
+func (b *Builder) Build(repoURL, appName, gitToken, buildCmd, startCmd, installCmd, runtime string, envVars map[string]string, logWriter io.Writer) (string, string, error) {
 	workDir := filepath.Join("/tmp", "paas-builds", appName)
 	if err := os.RemoveAll(workDir); err != nil {
-		return "", fmt.Errorf("failed to clean work dir: %w", err)
+		return "", "", fmt.Errorf("failed to clean work dir: %w", err)
 	}
 	if err := os.MkdirAll(workDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create work dir: %w", err)
+		return "", "", fmt.Errorf("failed to create work dir: %w", err)
 	}
 
 	cloneURL := repoURL
 	if gitToken != "" {
 		u, err := url.Parse(repoURL)
 		if err != nil {
-			return "", fmt.Errorf("invalid repo url: %w", err)
+			return "", "", fmt.Errorf("invalid repo url: %w", err)
 		}
 		u.User = url.UserPassword("oauth2", gitToken)
 		cloneURL = u.String()
@@ -41,7 +41,19 @@ func (b *Builder) Build(repoURL, appName, gitToken, buildCmd, startCmd, installC
 	cloneCmd.Stdout = logWriter
 	cloneCmd.Stderr = logWriter
 	if err := cloneCmd.Run(); err != nil {
-		return "", fmt.Errorf("git clone failed: %w", err)
+		return "", "", fmt.Errorf("git clone failed: %w", err)
+	}
+
+	// Get commit hash
+	commitCmd := exec.Command("git", "rev-parse", "HEAD")
+	commitCmd.Dir = workDir
+	commitHashBytes, err := commitCmd.Output()
+	commitHash := ""
+	if err == nil {
+		commitHash = strings.TrimSpace(string(commitHashBytes))
+		fmt.Fprintf(logWriter, ">>> Checked out commit: %s\n", commitHash)
+	} else {
+		fmt.Fprintf(logWriter, ">>> Failed to get commit hash: %v\n", err)
 	}
 
 	if runtime == "" {
@@ -106,7 +118,7 @@ cmd = "%s"
 	if _, err := os.Stat(filepath.Join(workDir, "package.json")); err == nil {
 		configPath := filepath.Join(workDir, "nixpacks.toml")
 		if err := os.WriteFile(configPath, []byte(nixpacksConfig), 0644); err != nil {
-			return "", fmt.Errorf("failed to write nixpacks.toml: %w", err)
+			return "", "", fmt.Errorf("failed to write nixpacks.toml: %w", err)
 		}
 	}
 
@@ -129,10 +141,10 @@ cmd = "%s"
 	)
 
 	if err := nixCmd.Run(); err != nil {
-		return "", fmt.Errorf("nixpacks build failed: %w", err)
+		return "", "", fmt.Errorf("nixpacks build failed: %w", err)
 	}
 
 	fmt.Fprintf(logWriter, "\n>>> Build successful!\n")
 
-	return imageName, nil
+	return imageName, commitHash, nil
 }

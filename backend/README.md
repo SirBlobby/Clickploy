@@ -16,6 +16,8 @@ This service handles:
 ### API Endpoints
 - `GET /api/projects`: List projects
 - `POST /api/projects`: Create a project
+- `PUT /api/projects/:id/env`: Update environment variables
+- `POST /api/projects/:id/redeploy`: Manual redeploy
 - `GET /api/activity`: Get recent activity
 - `WS /api/deployments/:id/logs/stream`: Stream logs
 
@@ -26,3 +28,4 @@ This service handles:
 - `internal/models/`: GORM models.
 - `internal/builder/`: Nixpacks wrapper.
 - `internal/deployer/`: Docker SDK wrapper.
+- `internal/ports/`: Port allocation logic.

@@ -2,7 +2,6 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -16,14 +15,14 @@ var upgrader = websocket.Upgrader{
 
 type LogHub struct {
 	mu      sync.Mutex
-	streams map[uint][]chan []byte
+	streams map[string][]chan []byte
 }
 
 var Hub = &LogHub{
-	streams: make(map[uint][]chan []byte),
+	streams: make(map[string][]chan []byte),
 }
 
-func (h *LogHub) Broadcast(deploymentID uint, p []byte) {
+func (h *LogHub) Broadcast(deploymentID string, p []byte) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if sinks, ok := h.streams[deploymentID]; ok {
@@ -36,7 +35,7 @@ func (h *LogHub) Broadcast(deploymentID uint, p []byte) {
 	}
 }
 
-func (h *LogHub) Subscribe(deploymentID uint) chan []byte {
+func (h *LogHub) Subscribe(deploymentID string) chan []byte {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	ch := make(chan []byte, 256)
@@ -44,7 +43,7 @@ func (h *LogHub) Subscribe(deploymentID uint) chan []byte {
 	return ch
 }
 
-func (h *LogHub) Unsubscribe(deploymentID uint, ch chan []byte) {
+func (h *LogHub) Unsubscribe(deploymentID string, ch chan []byte) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if sinks, ok := h.streams[deploymentID]; ok {
@@ -62,7 +61,7 @@ func (h *LogHub) Unsubscribe(deploymentID uint, ch chan []byte) {
 }
 
 type StreamWriter struct {
-	DeploymentID uint
+	DeploymentID string
 }
 
 func (w *StreamWriter) Write(p []byte) (n int, err error) {
@@ -73,9 +72,8 @@ func (w *StreamWriter) Write(p []byte) (n int, err error) {
 }
 
 func (h *Handler) streamDeploymentLogs(c *gin.Context) {
-	deploymentIDStr := c.Param("id")
-	deploymentID, err := strconv.ParseUint(deploymentIDStr, 10, 64)
-	if err != nil {
+	deploymentID := c.Param("id")
+	if deploymentID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid ID"})
 		return
 	}
@@ -86,8 +84,8 @@ func (h *Handler) streamDeploymentLogs(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	logChan := Hub.Subscribe(uint(deploymentID))
-	defer Hub.Unsubscribe(uint(deploymentID), logChan)
+	logChan := Hub.Subscribe(deploymentID)
+	defer Hub.Unsubscribe(deploymentID, logChan)
 
 	go func() {
 		for {

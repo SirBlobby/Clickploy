@@ -42,15 +42,13 @@
 				class="flex flex-wrap justify-center gap-4 text-sm text-muted-foreground"
 			>
 				<a href="/" class="hover:text-foreground transition-colors">Home</a>
-				<a href="/" class="hover:text-foreground transition-colors">Docs</a>
+				<a href="/docs" class="hover:text-foreground transition-colors">Docs</a>
 				<a
 					href="https://github.com/SirBlobby/Clickploy"
 					target="_blank"
 					rel="noreferrer"
 					class="hover:text-foreground transition-colors">GitHub</a
 				>
-				<a href="/" class="hover:text-foreground transition-colors">Support</a>
-				<a href="/" class="hover:text-foreground transition-colors">Legal</a>
 			</nav>
 		</div>
 
@@ -63,6 +61,11 @@
 			<span class={isNormal ? "text-blue-500" : "text-red-500"}>
 				{isNormal ? "All systems normal." : status}
 			</span>
+			{#if version}
+				<span class="text-muted-foreground ml-2">
+					{version}
+				</span>
+			{/if}
 		</div>
 	</div>
 </footer>

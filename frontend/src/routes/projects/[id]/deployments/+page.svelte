@@ -40,7 +40,7 @@
 			(d) =>
 				d.commit.toLowerCase().includes(searchTerm.toLowerCase()) ||
 				d.status.toLowerCase().includes(searchTerm.toLowerCase()) ||
-				d.ID.toString().includes(searchTerm),
+				d.id.toString().includes(searchTerm),
 		) || [],
 	);
 
@@ -90,26 +90,26 @@
 			<CardContent class="p-0">
 				{#if project.deployments?.length}
 					<div
-						class="grid grid-cols-12 gap-4 px-4 py-3 border-b text-xs font-medium text-muted-foreground bg-muted/40 uppercase tracking-wider"
+						class="grid grid-cols-12 gap-4 px-4 py-3 border-b text-xs font-medium text-muted-foreground bg-muted/40 uppercase tracking-wider text-center"
 					>
-						<div class="col-span-1">ID</div>
-						<div class="col-span-2">Status</div>
-						<div class="col-span-5">Commit</div>
-						<div class="col-span-3">Date</div>
-						<div class="col-span-1 text-right">Actions</div>
+						<div class="col-span-4 md:col-span-1">ID</div>
+						<div class="col-span-4 md:col-span-2">Status</div>
+						<div class="hidden md:block col-span-5">Commit</div>
+						<div class="hidden md:block col-span-3">Date</div>
+						<div class="col-span-4 md:col-span-1">Actions</div>
 					</div>
 
 					<div class="divide-y divide-border/40">
 						{#each filteredDeployments as deployment}
 							{@const StatusIcon = getStatusIcon(deployment.status)}
 							<div
-								class="grid grid-cols-12 gap-4 px-4 py-2.5 items-center hover:bg-muted/30 transition-colors text-sm group"
+								class="grid grid-cols-12 gap-4 px-4 py-2.5 items-center hover:bg-muted/30 transition-colors text-sm group text-center"
 							>
-								<div class="col-span-1 font-mono text-xs text-muted-foreground">
-									#{deployment.ID}
+								<div class="col-span-4 md:col-span-1 font-mono text-xs text-muted-foreground">
+									#{deployment.id}
 								</div>
 
-								<div class="col-span-2 flex items-center gap-2">
+								<div class="col-span-4 md:col-span-2 flex items-center justify-center gap-2">
 									<StatusIcon
 										class="h-4 w-4 {getStatusColor(
 											deployment.status,
@@ -125,15 +125,19 @@
 								</div>
 
 								<div
-									class="col-span-5 flex items-center gap-2 font-mono text-xs"
+									class="hidden md:flex col-span-5 items-center justify-center gap-2 font-mono text-xs"
 								>
 									<GitCommit class="h-3.5 w-3.5 text-muted-foreground" />
 									<span
-										class="bg-muted px-1.5 py-0.5 rounded border border-border/50 text-foreground/80"
+										class="bg-muted px-2 py-0.5 rounded-md border border-border/50 text-foreground/80 font-mono"
 									>
-										{deployment.commit
-											? deployment.commit.substring(0, 7)
-											: "HEAD"}
+										{deployment.commit === "HEAD"
+											? "HEAD"
+											: deployment.commit === "MANUAL"
+												? "MANUAL"
+												: deployment.commit === "WEBHOOK"
+													? "WEBHOOK"
+													: deployment.commit.substring(0, 7)}
 									</span>
 									<span
 										class="text-muted-foreground truncate hidden md:inline-block max-w-[200px]"
@@ -142,16 +146,16 @@
 											? "Manual Redeploy"
 											: deployment.commit === "WEBHOOK"
 												? "Webhook Trigger"
-												: "Git Push"}
+											: "Git Push"}
 									</span>
 								</div>
 
-								<div class="col-span-3 text-xs text-muted-foreground">
-									{new Date(deployment.CreatedAt).toLocaleString()}
+								<div class="hidden md:block col-span-3 text-xs text-muted-foreground">
+									{new Date(deployment.created_at).toLocaleString()}
 								</div>
 
 								<div
-									class="col-span-1 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+									class="col-span-4 md:col-span-1 flex items-center justify-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity"
 								>
 									{#if deployment.status === "live"}
 										<Button
@@ -169,7 +173,7 @@
 										variant="ghost"
 										size="icon"
 										class="h-7 w-7"
-										href={`/projects/${project.ID}?deployment=${deployment.ID}`}
+										href={`/projects/${project.id}?deployment=${deployment.id}`}
 										title="View Logs"
 									>
 										<Terminal class="h-3.5 w-3.5" />

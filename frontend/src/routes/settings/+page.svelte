@@ -88,8 +88,11 @@
 						</div>
 						<div class="space-y-2">
 							<Label>New Password</Label>
-							type="password" bind:value={newPassword}
-							required minlength={6}
+							<Input
+								type="password"
+								bind:value={newPassword}
+								required
+								minlength={6}
 							/>
 						</div>
 						<Button type="submit" variant="secondary" disabled={loading}

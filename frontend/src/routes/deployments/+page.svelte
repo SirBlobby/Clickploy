@@ -67,9 +67,9 @@
 						<TableHeader>
 							<TableRow>
 								<TableHead>Project</TableHead>
-								<TableHead>Commit</TableHead>
+								<TableHead class="hidden md:table-cell">Commit</TableHead>
 								<TableHead>Status</TableHead>
-								<TableHead>Created</TableHead>
+								<TableHead class="hidden md:table-cell">Created</TableHead>
 								<TableHead class="text-right">Actions</TableHead>
 							</TableRow>
 						</TableHeader>
@@ -79,7 +79,7 @@
 									<TableCell class="font-medium">
 										{#if deploy.project}
 											<a
-												href={`/projects/${deploy.project.ID}`}
+												href={`/projects/${deploy.project.id}`}
 												class="hover:underline flex items-center gap-2"
 											>
 												{deploy.project.name}
@@ -88,7 +88,7 @@
 											<span class="text-muted-foreground">Deleted Project</span>
 										{/if}
 									</TableCell>
-									<TableCell>
+									<TableCell class="hidden md:table-cell">
 										<div class="flex items-center gap-2">
 											<GitCommit class="h-4 w-4 text-muted-foreground" />
 											<span class="font-mono text-sm"
@@ -108,7 +108,7 @@
 											{deploy.status}
 										</span>
 									</TableCell>
-									<TableCell class="text-muted-foreground">
+									<TableCell class="hidden md:table-cell text-muted-foreground">
 										{new Date(deploy.CreatedAt).toLocaleDateString()}
 										{new Date(deploy.CreatedAt).toLocaleTimeString()}
 									</TableCell>

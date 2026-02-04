@@ -53,7 +53,7 @@ func (h *Handler) handleDeploy(c *gin.Context) {
 		return
 	}
 
-	imageName, err := h.builder.Build(req.Repo, req.Name, req.GitToken, "", "", "", "", nil, os.Stdout)
+	imageName, _, err := h.builder.Build(req.Repo, req.Name, req.GitToken, "", "", "", "", nil, os.Stdout)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Build failed: %v", err)})
 		return

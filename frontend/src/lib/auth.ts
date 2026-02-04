@@ -2,10 +2,11 @@ import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 
 export interface User {
-    ID: number;
+    id: string;
     email: string;
     name: string;
     avatar: string;
+    is_admin: boolean;
 }
 
 const storedUser = browser ? localStorage.getItem('user') : null;

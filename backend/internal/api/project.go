@@ -2,17 +2,17 @@ package api
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
-	"time"
 
-	"clickploy/internal/auth"
 	"clickploy/internal/db"
 	"clickploy/internal/models"
 
 	"github.com/gin-gonic/gin"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"gorm.io/gorm"
 )
 
@@ -40,14 +40,8 @@ func (h *Handler) updateProjectEnv(c *gin.Context) {
 		return
 	}
 
-	pid, err := strconv.ParseUint(projectID, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
-		return
-	}
-
 	var project models.Project
-	if result := db.DB.Where("id = ? AND owner_id = ?", pid, userID).First(&project); result.Error != nil {
+	if result := db.DB.Where("id = ? AND owner_id = ?", projectID, userID).First(&project); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
@@ -80,19 +74,15 @@ func (h *Handler) redeployProject(c *gin.Context) {
 	userID, _ := c.Get("userID")
 	projectID := c.Param("id")
 
-	pid, err := strconv.ParseUint(projectID, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
-		return
-	}
-
 	var project models.Project
-	if result := db.DB.Preload("EnvVars").Where("id = ? AND owner_id = ?", pid, userID).First(&project); result.Error != nil {
+	if result := db.DB.Preload("EnvVars").Where("id = ? AND owner_id = ?", projectID, userID).First(&project); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 
+	depID, _ := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 10)
 	deployment := models.Deployment{
+		ID:        depID,
 		ProjectID: project.ID,
 		Status:    "building",
 		Commit:    "MANUAL",
@@ -110,7 +100,7 @@ func (h *Handler) redeployProject(c *gin.Context) {
 			envMap[env.Key] = env.Value
 		}
 
-		imageName, err := h.builder.Build(project.RepoURL, project.Name, project.GitToken, project.BuildCommand, project.StartCommand, project.InstallCommand, project.Runtime, envMap, multi)
+		imageName, commitHash, err := h.builder.Build(project.RepoURL, project.Name, project.GitToken, project.BuildCommand, project.StartCommand, project.InstallCommand, project.Runtime, envMap, multi)
 		deployment.Logs = logBuffer.String()
 
 		if err != nil {
@@ -118,6 +108,11 @@ func (h *Handler) redeployProject(c *gin.Context) {
 			deployment.Logs += fmt.Sprintf("\n\nBuild Error: %v", err)
 			db.DB.Save(&deployment)
 			return
+		}
+
+		// Update commit hash if we got one
+		if commitHash != "" {
+			deployment.Commit = commitHash
 		}
 
 		var envStrings []string
@@ -190,12 +185,17 @@ func (h *Handler) createProject(c *gin.Context) {
 		envVarsModel = append(envVarsModel, models.EnvVar{Key: k, Value: v})
 	}
 
-	webhookSecret, _ := auth.HashPassword(fmt.Sprintf("%s-%d-%d", req.Name, userID, time.Now().UnixNano()))
+	secretBytes := make([]byte, 16)
+	rand.Read(secretBytes)
+	webhookSecret := hex.EncodeToString(secretBytes)
+
+	id, _ := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 10)
 
 	project := models.Project{
+		ID:             id,
 		Name:           req.Name,
 		RepoURL:        req.Repo,
-		OwnerID:        userID.(uint),
+		OwnerID:        userID.(string),
 		Port:           port,
 		WebhookSecret:  webhookSecret,
 		GitToken:       req.GitToken,
@@ -211,7 +211,9 @@ func (h *Handler) createProject(c *gin.Context) {
 		return
 	}
 
+	depID, _ := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 10)
 	deployment := models.Deployment{
+		ID:        depID,
 		ProjectID: project.ID,
 		Status:    "building",
 		Commit:    "HEAD",
@@ -224,7 +226,7 @@ func (h *Handler) createProject(c *gin.Context) {
 		streamer := &StreamWriter{DeploymentID: deployment.ID}
 		multi := io.MultiWriter(&logBuffer, streamer)
 
-		imageName, err := h.builder.Build(req.Repo, req.Name, req.GitToken, req.BuildCommand, req.StartCommand, req.InstallCommand, req.Runtime, req.EnvVars, multi)
+		imageName, commitHash, err := h.builder.Build(req.Repo, req.Name, req.GitToken, req.BuildCommand, req.StartCommand, req.InstallCommand, req.Runtime, req.EnvVars, multi)
 		deployment.Logs = logBuffer.String()
 
 		if err != nil {
@@ -232,6 +234,11 @@ func (h *Handler) createProject(c *gin.Context) {
 			deployment.Logs += fmt.Sprintf("\n\nBuild Error: %v", err)
 			db.DB.Save(&deployment)
 			return
+		}
+
+		// Update commit hash
+		if commitHash != "" {
+			deployment.Commit = commitHash
 		}
 
 		containerID, err := h.deployer.RunContainer(c.Request.Context(), imageName, req.Name, port, envStrings)
@@ -266,16 +273,10 @@ func (h *Handler) getProject(c *gin.Context) {
 	userID, _ := c.Get("userID")
 	projectID := c.Param("id")
 
-	pid, err := strconv.ParseUint(projectID, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
-		return
-	}
-
 	var project models.Project
 	if result := db.DB.Order("created_at desc").Preload("Deployments", func(db *gorm.DB) *gorm.DB {
 		return db.Order("deployments.created_at desc")
-	}).Preload("EnvVars").Where("id = ? AND owner_id = ?", pid, userID).First(&project); result.Error != nil {
+	}).Preload("EnvVars").Where("id = ? AND owner_id = ?", projectID, userID).First(&project); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}

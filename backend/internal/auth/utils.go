@@ -11,7 +11,7 @@ import (
 var SecretKey = []byte("super-secret-key-change-me")
 
 type Claims struct {
-	UserID uint   `json:"user_id"`
+	UserID string `json:"user_id"`
 	Email  string `json:"email"`
 	jwt.RegisteredClaims
 }
@@ -26,7 +26,7 @@ func CheckPassword(password, hash string) bool {
 	return err == nil
 }
 
-func GenerateToken(userID uint, email string) (string, error) {
+func GenerateToken(userID string, email string) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &Claims{
 		UserID: userID,

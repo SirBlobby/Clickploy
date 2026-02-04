@@ -21,6 +21,7 @@
 		EyeOff,
 		Plus,
 		Copy,
+		Upload,
 	} from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
 
@@ -90,12 +91,12 @@
 		}
 
 		loading = true;
-		const success = await updateProjectEnv(project.ID.toString(), envMap);
+		const success = await updateProjectEnv(project.id.toString(), envMap);
 		loading = false;
 
 		if (success) {
 			toast.success("Environment variables updated successfully");
-			const res = await getProject(project.ID.toString());
+			const res = await getProject(project.id.toString());
 			if (res) {
 				project = res;
 				initEnvVars();
@@ -107,9 +108,45 @@
 
 	function copyWebhook() {
 		if (!project) return;
-		const displayUrl = `http://localhost:8080/webhooks/trigger?project_id=${project.ID}`;
+		const displayUrl = `http://localhost:8080/projects/${project.id}/webhook/${project.webhook_secret}`;
 		navigator.clipboard.writeText(displayUrl);
 		toast.success("Webhook URL copied");
+	}
+
+	async function handleFileUpload(e: Event) {
+		const target = e.target as HTMLInputElement;
+		const file = target.files?.[0];
+		if (!file) return;
+
+		const text = await file.text();
+		const lines = text.split("\n");
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed || trimmed.startsWith("#")) continue;
+
+			const [key, ...parts] = trimmed.split("=");
+			if (key) {
+				const value = parts.join("=");
+				const existingIndex = tempEnvVars.findIndex(
+					(e) => e.key === key.trim(),
+				);
+				if (existingIndex >= 0) {
+					tempEnvVars[existingIndex].value = value.replace(
+						/^["'](.*)["']$/,
+						"$1",
+					); // remove quotes
+				} else {
+					tempEnvVars = [
+						...tempEnvVars,
+						{ key: key.trim(), value: value.replace(/^["'](.*)["']$/, "$1") },
+					];
+				}
+			}
+		}
+		isDirty = true;
+		target.value = "";
+		toast.success("Parsed .env file successfully");
 	}
 </script>
 
@@ -166,14 +203,32 @@
 					</div>
 				{/each}
 
-				<Button
-					variant="outline"
-					class="w-full h-11 border-dashed border-border/60 hover:bg-muted/50"
-					onclick={addEnvVar}
-				>
-					<Plus class="h-4 w-4 mr-2" />
-					Add Variable
-				</Button>
+				<div class="flex gap-2">
+					<Button
+						variant="outline"
+						class="flex-1 h-11 border-dashed border-border/60 hover:bg-muted/50"
+						onclick={addEnvVar}
+					>
+						<Plus class="h-4 w-4 mr-2" />
+						Add Variable
+					</Button>
+					<div class="relative">
+						<input
+							type="file"
+							accept=".env"
+							class="hidden"
+							id="env-upload"
+							onchange={handleFileUpload}
+						/>
+						<Label
+							for="env-upload"
+							class="flex items-center justify-center px-4 h-11 rounded-md border border-dashed border-border/60 hover:bg-muted/50 cursor-pointer bg-background"
+						>
+							<Upload class="h-4 w-4 mr-2" />
+							Upload .env
+						</Label>
+					</div>
+				</div>
 			</CardContent>
 			<CardFooter class="border-t px-4 flex justify-end">
 				<Button onclick={saveEnvVars} disabled={!isDirty || loading} size="sm">
@@ -199,22 +254,13 @@
 					<div class="flex items-center gap-2">
 						<Input
 							readonly
-							value={`http://localhost:8080/webhooks/trigger?project_id=${project.ID}`}
+							value={`http://localhost:8080/projects/${project.id}/webhook/${project.webhook_secret}`}
 							class="bg-muted font-mono text-xs"
 						/>
 						<Button variant="outline" size="icon" onclick={copyWebhook}>
 							<Copy class="h-4 w-4" />
 						</Button>
 					</div>
-				</div>
-				<div class="space-y-2">
-					<Label class="text-sm">Webhook Secret</Label>
-					<Input
-						type="password"
-						readonly
-						value={project.webhook_secret}
-						class="bg-muted font-mono text-xs"
-					/>
 				</div>
 			</CardContent>
 		</Card>

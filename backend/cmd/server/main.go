@@ -43,6 +43,7 @@ func main() {
 	handler.RegisterWebhookRoutes(r)
 	handler.RegisterSystemRoutes(r)
 	handler.RegisterStorageRoutes(r)
+	handler.RegisterAdminRoutes(r)
 
 	log.Println("Starting Clickploy Backend on :8080")
 	if err := r.Run(":8080"); err != nil {

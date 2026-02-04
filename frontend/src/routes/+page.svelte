@@ -22,6 +22,7 @@
 		Settings,
 		ChevronsUpDown,
 		ExternalLink,
+		Upload,
 	} from "@lucide/svelte";
 	import * as Collapsible from "$lib/components/ui/collapsible";
 	import * as Select from "$lib/components/ui/select";
@@ -57,6 +58,48 @@
 
 	function removeEnvVar(index: number) {
 		envVars = envVars.filter((_, i) => i !== index);
+	}
+
+	async function handleEnvUpload(e: Event) {
+		const input = e.target as HTMLInputElement;
+		if (!input.files || input.files.length === 0) return;
+
+		const file = input.files[0];
+		const text = await file.text();
+		
+		const newVars: { key: string; value: string }[] = [];
+		const lines = text.split('\n');
+
+		for (const line of lines) {
+			const trimmed = line.trim();
+			if (!trimmed || trimmed.startsWith('#')) continue;
+
+			const eqIdx = trimmed.indexOf('=');
+			if (eqIdx === -1) continue;
+
+			const key = trimmed.slice(0, eqIdx).trim();
+			let value = trimmed.slice(eqIdx + 1).trim();
+
+			// Remove surrounding quotes if present
+			if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+				value = value.slice(1, -1);
+			}
+
+			if (key) {
+				newVars.push({ key, value });
+			}
+		}
+
+		if (newVars.length > 0) {
+			// If the first item is empty, remove it
+			if (envVars.length === 1 && !envVars[0].key && !envVars[0].value) {
+				envVars = newVars;
+			} else {
+				envVars = [...envVars, ...newVars];
+			}
+		}
+		
+		input.value = ''; // Reset input
 	}
 
 	async function handleDeploy() {
@@ -108,21 +151,99 @@
 <div class="container mx-auto py-10 px-4">
 	{#if !$user}
 		<div
-			class="flex flex-col items-center justify-center space-y-10 py-20 text-center"
+			class="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in zoom-in duration-500"
 		>
-			Deploy with <span
-				class="bg-linear-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent"
-				>One Click</span
-			>.
-			<p class="max-w-[600px] text-muted-foreground text-xl">
-				The simplified PaaS for your personal projects. Push, build, and scale
-				without the complexity.
-			</p>
-			<div class="flex gap-4">
-				<Button href="/login" size="lg">Get Started</Button>
-				<Button href="https://github.com/clickploy" variant="outline" size="lg">
-					<Github class="mr-2 h-4 w-4" /> GitHub
+			<div
+				class="bg-primary/10 p-4 rounded-full mb-4 ring-1 ring-primary/20 shadow-[0_0_30px_-10px_rgba(255,255,255,0.3)]"
+			>
+				<Terminal class="w-12 h-12 text-primary" />
+			</div>
+
+			<div class="space-y-4 max-w-2xl">
+				<h1 class="text-4xl md:text-6xl font-extrabold tracking-tight">
+					Deploy with Clickploy
+				</h1>
+				<p class="text-xl text-muted-foreground leading-relaxed">
+					Self-hosted PaaS made simple. Push your code, we handle the rest. No
+					complex configs, just pure deployment power.
+				</p>
+			</div>
+
+			<div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto pt-4">
+				<Button
+					href="/login"
+					size="lg"
+					class="min-w-[160px] text-lg h-12 shadow-lg hover:shadow-primary/25 transition-all"
+				>
+					Get Started
 				</Button>
+				<Button
+					href="https://github.com/SirBlobby/Clickploy"
+					variant="outline"
+					size="lg"
+					class="min-w-[160px] text-lg h-12"
+				>
+					<Github class="mr-2 h-5 w-5" /> GitHub
+				</Button>
+			</div>
+
+			<div
+				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-12 w-full max-w-5xl text-left"
+			>
+				<Card class="bg-card/50 border-muted">
+					<CardHeader class="pb-2">
+						<Activity class="w-8 h-8 text-primary mb-2" />
+						<CardTitle class="text-lg">Zero Config</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-muted-foreground">
+						Deploy from any Git repo without writing Dockerfiles or YAML.
+					</CardContent>
+				</Card>
+				<Card class="bg-card/50 border-muted">
+					<CardHeader class="pb-2">
+						<Terminal class="w-8 h-8 text-primary mb-2" />
+						<CardTitle class="text-lg">Docker Native</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-muted-foreground">
+						Every app runs in its own isolated container for security.
+					</CardContent>
+				</Card>
+				<Card class="bg-card/50 border-muted">
+					<CardHeader class="pb-2">
+						<ExternalLink class="w-8 h-8 text-primary mb-2" />
+						<CardTitle class="text-lg">Auto Ports</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-muted-foreground">
+						We automatically assign and manage ports for your services.
+					</CardContent>
+				</Card>
+				<Card class="bg-card/50 border-muted">
+					<CardHeader class="pb-2">
+						<Settings class="w-8 h-8 text-primary mb-2" />
+						<CardTitle class="text-lg">Full Control</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-muted-foreground">
+						Self-hosted means you own your data, logs, and infrastructure.
+					</CardContent>
+				</Card>
+				<Card class="bg-card/50 border-muted">
+					<CardHeader class="pb-2">
+						<Terminal class="w-8 h-8 text-primary mb-2" />
+						<CardTitle class="text-lg">CLI Integration</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-muted-foreground">
+						Manage your deployments from the terminal. (Coming Soon)
+					</CardContent>
+				</Card>
+				<Card class="bg-card/50 border-muted">
+					<CardHeader class="pb-2">
+						<Github class="w-8 h-8 text-primary mb-2" />
+						<CardTitle class="text-lg">Git Webhooks</CardTitle>
+					</CardHeader>
+					<CardContent class="text-sm text-muted-foreground">
+						Automatically deploy when you push changes to your repository.
+					</CardContent>
+				</Card>
 			</div>
 		</div>
 	{:else}
@@ -165,14 +286,14 @@
 										<div class="flex items-center gap-2">
 											<Input
 												readonly
-												value={`http://localhost:8080/webhooks/trigger?project_id=${createdProject.ID}`}
+												value={`http://localhost:8080/webhooks/trigger?project_id=${createdProject.id}`}
 											/>
 											<Button
 												variant="outline"
 												size="icon"
 												onclick={() =>
 													navigator.clipboard.writeText(
-														`http://localhost:8080/webhooks/trigger?project_id=${createdProject.ID}`,
+														`http://localhost:8080/webhooks/trigger?project_id=${createdProject.id}`,
 													)}
 											>
 												Copy
@@ -341,6 +462,24 @@
 											>
 												<Plus class="mr-2 h-4 w-4" /> Add Variable
 											</Button>
+											
+											<div class="relative">
+												<input
+													type="file"
+													accept=".env,text/plain"
+													class="hidden"
+													id="env-upload"
+													onchange={handleEnvUpload}
+												/>
+												<Button
+													variant="secondary"
+													size="sm"
+													class="w-full"
+													onclick={() => document.getElementById('env-upload')?.click()}
+												>
+													<Upload class="mr-2 h-4 w-4" /> Upload .env File
+												</Button>
+											</div>
 										</Collapsible.Content>
 									</Collapsible.Root>
 								</div>
@@ -391,16 +530,16 @@
 					<Card
 						class="group hover:shadow-lg transition-all duration-300 border-muted/60 hover:border-primary/50 cursor-pointer overflow-hidden relative"
 					>
-						<a href={`/projects/${project.ID}`} class="block h-full">
+						<a href={`/projects/${project.id}`} class="block h-full">
 							<CardHeader class="pb-3">
 								<div class="flex items-start justify-between">
 									<div class="space-y-1">
 										<CardTitle class="text-xl flex items-center gap-2">
 											{project.name}
 										</CardTitle>
-										<CardDescription class="flex items-center gap-1">
+										<CardDescription class="flex items-center gap-1" >
 											<Github class="h-3 w-3" />
-											{new URL(project.repo_url).pathname.slice(1)}
+											<a href={project.repo_url} target="_blank">{new URL(project.repo_url).pathname.slice(1)}</a>
 										</CardDescription>
 									</div>
 									<span
@@ -464,7 +603,7 @@
 									<Button
 										variant="secondary"
 										class="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-										href={`/projects/${project.ID}`}
+										href={`/projects/${project.id}`}
 									>
 										Manage
 									</Button>

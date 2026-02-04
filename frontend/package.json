@@ -12,7 +12,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
-		"@internationalized/date": "^3.10.1",
+		"@internationalized/date": "^3.11.0",
 		"@lucide/svelte": "^0.561.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
 		"@sveltejs/kit": "^2.50.2",
@@ -32,6 +32,8 @@
 		"vite": "^7.3.1"
 	},
 	"dependencies": {
+		"gray-matter": "^4.0.3",
+		"marked": "^17.0.1",
 		"svelte-sonner": "^1.0.7"
 	}
 }

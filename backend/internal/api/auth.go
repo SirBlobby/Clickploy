@@ -8,6 +8,7 @@ import (
 	"clickploy/internal/models"
 
 	"github.com/gin-gonic/gin"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 type AuthRequest struct {
@@ -42,11 +43,17 @@ func (h *Handler) register(c *gin.Context) {
 		return
 	}
 
+	var count int64
+	db.DB.Model(&models.User{}).Count(&count)
+
+	userID, _ := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 10)
 	user := models.User{
+		ID:       userID,
 		Email:    req.Email,
 		Password: hashed,
 		Name:     req.Name,
 		Avatar:   "https://github.com/shadcn.png",
+		IsAdmin:  count == 0,
 	}
 
 	if result := db.DB.Create(&user); result.Error != nil {
@@ -101,7 +108,7 @@ func (h *Handler) updateProfile(c *gin.Context) {
 	}
 
 	var user models.User
-	if result := db.DB.First(&user, userID); result.Error != nil {
+	if result := db.DB.Where("id = ?", userID).First(&user); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
@@ -130,7 +137,7 @@ func (h *Handler) updatePassword(c *gin.Context) {
 	}
 
 	var user models.User
-	if result := db.DB.First(&user, userID); result.Error != nil {
+	if result := db.DB.Where("id = ?", userID).First(&user); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}

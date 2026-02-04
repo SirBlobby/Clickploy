@@ -53,7 +53,7 @@ func (h *Handler) handleGetStorageStats(c *gin.Context) {
 }
 
 func (h *Handler) handleListDatabases(c *gin.Context) {
-	userId := c.GetUint("userID")
+	userId := c.GetString("userID")
 	var dbs []models.Database
 	if err := db.DB.Where("owner_id = ?", userId).Find(&dbs).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to list databases"})
@@ -63,7 +63,7 @@ func (h *Handler) handleListDatabases(c *gin.Context) {
 }
 
 func (h *Handler) handleCreateDatabase(c *gin.Context) {
-	userId := c.GetUint("userID")
+	userId := c.GetString("userID")
 	var req CreateDatabaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -81,7 +81,7 @@ func (h *Handler) handleCreateDatabase(c *gin.Context) {
 	dataDir := "./data/user_dbs"
 	os.MkdirAll(dataDir, 0755)
 
-	dbPath := filepath.Join(dataDir, fmt.Sprintf("%d_%s.db", userId, req.Name))
+	dbPath := filepath.Join(dataDir, fmt.Sprintf("%s_%s.db", userId, req.Name))
 	file, err := os.Create(dbPath)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create database file"})

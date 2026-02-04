@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"clickploy/internal/auth"
+	"clickploy/internal/db"
+	"clickploy/internal/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,6 +30,32 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		c.Set("userID", claims.UserID)
 		c.Set("email", claims.Email)
+		c.Next()
+	}
+}
+
+func AdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+			c.Abort()
+			return
+		}
+
+		var user models.User
+		if err := db.DB.Where("id = ?", userID).First(&user).Error; err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+			c.Abort()
+			return
+		}
+
+		if !user.IsAdmin {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Admin privileges required"})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }

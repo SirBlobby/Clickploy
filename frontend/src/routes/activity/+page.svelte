@@ -60,10 +60,10 @@
 					<div
 						class="grid grid-cols-12 gap-4 px-4 py-3 border-b text-xs font-medium text-muted-foreground bg-muted/40 uppercase tracking-wider"
 					>
-						<div class="col-span-3">Project</div>
-						<div class="col-span-4">Commit</div>
-						<div class="col-span-2">Status</div>
-						<div class="col-span-3 text-right">Time</div>
+						<div class="col-span-6 md:col-span-3">Project</div>
+						<div class="hidden md:block col-span-4">Commit</div>
+						<div class="col-span-4 md:col-span-2">Status</div>
+						<div class="col-span-2 md:col-span-3 text-right">Time</div>
 					</div>
 
 					<div class="divide-y divide-border/40">
@@ -71,7 +71,7 @@
 							<div
 								class="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-muted/30 transition-colors text-sm group"
 							>
-								<div class="col-span-3 flex items-center gap-2 overflow-hidden">
+								<div class="col-span-6 md:col-span-3 flex items-center gap-2 overflow-hidden">
 									<div
 										class="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0 text-primary uppercase font-bold text-xs ring-1 ring-inset ring-primary/20"
 									>
@@ -86,7 +86,7 @@
 								</div>
 
 								<div
-									class="col-span-4 flex items-center gap-2 font-mono text-xs text-muted-foreground"
+									class="hidden md:flex col-span-4 items-center gap-2 font-mono text-xs text-muted-foreground"
 								>
 									<GitCommit class="h-3.5 w-3.5 shrink-0" />
 									<span
@@ -103,7 +103,7 @@
 									</span>
 								</div>
 
-								<div class="col-span-2">
+								<div class="col-span-4 md:col-span-2">
 									<span
 										class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium border
 										{activity.status === 'live'
@@ -122,9 +122,9 @@
 								</div>
 
 								<div
-									class="col-span-3 flex items-center justify-end gap-3 text-right"
+									class="col-span-2 md:col-span-3 flex items-center justify-end gap-3 text-right"
 								>
-									<span class="text-xs text-muted-foreground">
+									<span class="hidden md:inline text-xs text-muted-foreground">
 										{new Date(activity.CreatedAt).toLocaleString(undefined, {
 											month: "short",
 											day: "numeric",

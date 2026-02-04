@@ -22,12 +22,23 @@ export interface EnvVar {
 	value: string;
 }
 
+export interface Deployment {
+	id: string;
+	project_id: string;
+	status: string;
+	commit: string;
+	logs: string;
+	url: string;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface Project {
-	ID: number;
+	id: string;
 	name: string;
 	repo_url: string;
 	port: number;
-	deployments: any[];
+	deployments: Deployment[];
 	env_vars: EnvVar[];
 	webhook_secret: string;
 	git_token?: string;
@@ -225,6 +236,36 @@ export async function createDatabase(name: string, type: string = "sqlite") {
 		});
 	} catch (e: any) {
 		toast.error(e.message);
+		return null;
+	}
+}
+
+export async function getAdminUsers() {
+	try {
+		return await fetchWithAuth("/api/admin/users");
+	} catch (e: any) {
+		toast.error(e.message);
+		return [];
+	}
+}
+
+export async function deleteAdminUser(id: string) {
+	try {
+		await fetchWithAuth(`/api/admin/users/${id}`, {
+			method: "DELETE",
+		});
+		return true;
+	} catch (e: any) {
+		toast.error(e.message);
+		return false;
+	}
+}
+
+export async function getAdminStats() {
+	try {
+		return await fetchWithAuth("/api/admin/stats");
+	} catch (e: any) {
+		console.error(e);
 		return null;
 	}
 }

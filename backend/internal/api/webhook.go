@@ -5,38 +5,41 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 
 	"clickploy/internal/db"
 	"clickploy/internal/models"
 
 	"github.com/gin-gonic/gin"
+	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
 func (h *Handler) RegisterWebhookRoutes(r *gin.Engine) {
-	r.POST("/webhooks/trigger", h.handleWebhook)
+	r.POST("/projects/:projectID/webhook/:webhookID", h.handleWebhook)
 }
 
 func (h *Handler) handleWebhook(c *gin.Context) {
-	projectIDHex := c.Query("project_id")
-	if projectIDHex == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "project_id required"})
-		return
-	}
+	projectID := c.Param("projectID")
+	webhookSecret := c.Param("webhookID")
 
-	pid, err := strconv.ParseUint(projectIDHex, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Project ID"})
+	if projectID == "" || webhookSecret == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid webhook url"})
 		return
 	}
 
 	var project models.Project
-	if result := db.DB.Preload("EnvVars").First(&project, pid); result.Error != nil {
+	if result := db.DB.Preload("EnvVars").Where("id = ?", projectID).First(&project); result.Error != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
 
+	if project.WebhookSecret != webhookSecret {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid Webhook Secret"})
+		return
+	}
+
+	depID, _ := gonanoid.Generate("abcdefghijklmnopqrstuvwxyz0123456789", 10)
 	deployment := models.Deployment{
+		ID:        depID,
 		ProjectID: project.ID,
 		Status:    "building",
 		Commit:    "WEBHOOK",
@@ -57,13 +60,17 @@ func (h *Handler) handleWebhook(c *gin.Context) {
 			envMap[env.Key] = env.Value
 		}
 
-		imageName, err := h.builder.Build(project.RepoURL, project.Name, project.GitToken, project.BuildCommand, project.StartCommand, project.InstallCommand, project.Runtime, envMap, multi)
+		imageName, commitHash, err := h.builder.Build(project.RepoURL, project.Name, project.GitToken, project.BuildCommand, project.StartCommand, project.InstallCommand, project.Runtime, envMap, multi)
 		deployment.Logs = logBuffer.String()
 		if err != nil {
 			deployment.Status = "failed"
 			deployment.Logs += fmt.Sprintf("\n\nBuild Failed: %v", err)
 			db.DB.Save(&deployment)
 			return
+		}
+
+		if commitHash != "" {
+			deployment.Commit = commitHash
 		}
 
 		var envStrings []string

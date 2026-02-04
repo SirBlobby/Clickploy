@@ -24,7 +24,7 @@
 	let status = $derived(latestDeployment?.status || "unknown");
 
 	let activeDeploymentLogs = $state("");
-	let activeDeploymentId = $state<number | null>(null);
+	let activeDeploymentId = $state<string | null>(null);
 	let ws = $state<WebSocket | null>(null);
 	let logContentRef = $state<HTMLDivElement | null>(null);
 	let copied = $state(false);
@@ -63,7 +63,7 @@
 	async function handleRedeploy() {
 		if (!project) return;
 		toast.info("Starting redeployment...");
-		const success = await redeployProject(project.ID.toString());
+		const success = await redeployProject(project.id.toString());
 		if (success) {
 			toast.success("Redeployment started!");
 			setTimeout(loadProject, 1000);
@@ -71,16 +71,16 @@
 	}
 
 	function selectDeployment(deployment: any) {
-		if (activeDeploymentId === deployment.ID) return;
+		if (activeDeploymentId === deployment.id) return;
 
-		activeDeploymentId = deployment.ID;
+		activeDeploymentId = deployment.id;
 		activeDeploymentLogs = deployment.logs || "";
 		userScrolled = false;
 		autoScroll = true;
 		scrollToBottom(true);
 
 		if (deployment.status === "building") {
-			connectWebSocket(deployment.ID);
+			connectWebSocket(deployment.id);
 		} else {
 			if (ws) {
 				ws.close();
@@ -89,7 +89,7 @@
 		}
 	}
 
-	function connectWebSocket(deploymentId: number) {
+	function connectWebSocket(deploymentId: string) {
 		if (ws) ws.close();
 		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
 		ws = new WebSocket(
@@ -143,7 +143,7 @@
 		<Loader2 class="h-8 w-8 animate-spin text-muted-foreground" />
 	</div>
 {:else if project}
-	<div class="space-y-4 h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+	<div class="space-y-4 lg:h-[calc(100vh-140px)] flex flex-col lg:overflow-hidden">
 		<div class="shrink-0 space-y-4">
 			<div class="flex items-center justify-between">
 				<div class="flex items-center gap-3">
@@ -193,7 +193,7 @@
 			</div>
 
 			<div
-				class="grid grid-cols-4 gap-px bg-border/40 rounded-lg overflow-hidden border"
+				class="grid grid-cols-2 lg:grid-cols-4 gap-px bg-border/40 rounded-lg overflow-hidden border"
 			>
 				<div
 					class="bg-card p-3 flex flex-col justify-center items-center relative overflow-hidden group"
@@ -260,7 +260,7 @@
 
 		<div class="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
 			<Card
-				class="flex flex-col min-h-0 bg-transparent shadow-none border-0 lg:col-span-1"
+				class="flex flex-col min-h-0 h-[300px] lg:h-auto bg-transparent shadow-none border-0 lg:col-span-1"
 			>
 				<div class="flex items-center justify-between px-1 pb-2">
 					<h3 class="text-sm font-semibold text-muted-foreground">History</h3>
@@ -270,25 +270,29 @@
 						{#each project.deployments as deployment}
 							<button
 								class="w-full flex items-center justify-between p-2.5 rounded-md border text-left transition-all text-xs
-								{activeDeploymentId === deployment.ID
+								{activeDeploymentId === deployment.id
 									? 'bg-primary/5 border-primary/20 shadow-sm'
 									: 'bg-card hover:bg-muted/50 border-input'}"
 								onclick={() => selectDeployment(deployment)}
 							>
 								<div class="flex flex-col gap-0.5 min-w-0">
 									<div class="flex items-center gap-2">
-										<span class="font-semibold">#{deployment.ID}</span>
+										<span class="font-semibold text-xs">#{deployment.id}</span>
 										<span
 											class="font-mono text-[10px] text-muted-foreground bg-muted px-1 rounded flex items-center gap-1"
 										>
 											<GitCommit class="h-2 w-2" />
-											{deployment.commit
-												? deployment.commit.substring(0, 7)
-												: "HEAD"}
+											{deployment.commit === "HEAD"
+												? "HEAD"
+												: deployment.commit === "MANUAL"
+													? "Manual"
+													: deployment.commit === "WEBHOOK"
+														? "Webhook"
+														: deployment.commit.substring(0, 7)}
 										</span>
 									</div>
 									<span class="text-[10px] text-muted-foreground truncate">
-										{new Date(deployment.CreatedAt).toLocaleString(undefined, {
+										{new Date(deployment.created_at).toLocaleString(undefined, {
 											month: "short",
 											day: "numeric",
 											hour: "2-digit",
@@ -322,14 +326,15 @@
 			</Card>
 
 			<div
-				class="lg:col-span-3 flex flex-col min-h-0 rounded-lg border bg-zinc-950 shadow-sm overflow-hidden border-border/40"
+				class="lg:col-span-3 flex flex-col min-h-0 h-[500px] lg:h-auto rounded-lg border bg-card shadow-sm overflow-hidden border-border/40"
 			>
 				<div
-					class="flex shrink-0 items-center justify-between px-3 py-2 bg-zinc-900/50 border-b border-white/5"
+					class="flex shrink-0 items-center justify-between px-3 py-2 bg-muted/50 border-b border-border"
 				>
 					<div class="flex items-center gap-2">
-						<Terminal class="h-3.5 w-3.5 text-zinc-400" />
-						<span class="text-xs font-mono text-zinc-300">
+						<Terminal class="h-3.5 w-3.5 text-muted-foreground" />
+
+						<span class="text-xs font-mono text-muted-foreground">
 							{#if activeDeploymentId}
 								build-log-{activeDeploymentId}.log
 							{:else}
@@ -365,7 +370,7 @@
 						<Button
 							variant="ghost"
 							size="icon"
-							class="h-6 w-6 text-zinc-400 hover:text-white"
+							class="h-6 w-6 text-muted-foreground hover:text-foreground"
 							onclick={copyLogs}
 							title="Copy Logs"
 						>
@@ -381,14 +386,14 @@
 				<div
 					bind:this={logContentRef}
 					onscroll={handleScroll}
-					class="flex-1 overflow-auto p-3 font-mono text-[11px] leading-relaxed text-gray-200 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent selection:bg-white/20"
+					class="flex-1 overflow-auto p-4 font-mono text-[11px] leading-relaxed text-foreground scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent selection:bg-primary/20 bg-card"
 				>
 					{#if activeDeploymentLogs}
 						<pre
 							class="whitespace-pre-wrap break-all">{activeDeploymentLogs}</pre>
 					{:else}
 						<div
-							class="flex h-full items-center justify-center text-zinc-600 italic text-xs"
+							class="flex h-full items-center justify-center text-muted-foreground italic text-xs"
 						>
 							<p>Select a deployment to view logs</p>
 						</div>

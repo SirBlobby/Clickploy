@@ -15,7 +15,8 @@ A modern, responsive dashboard to manage your applications, monitor deployments,
 
 ## Features
 - **Project List**: View all deployed applications.
-- **Real-time Logs**: Watch builds and runtime logs live.
+- **Deployment History**: Track past builds and status.
+- **Real-time Logs**: Watch builds and runtime logs live via WebSockets.
 - **Redeploy**: Trigger manual redeployments.
 - **Environment Variables**: Manage runtime configuration.
 - **Responsive Design**: Works on desktop and mobile.
