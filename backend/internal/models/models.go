@@ -1,11 +1,8 @@
 package models
-
 import (
 	"time"
-
 	"gorm.io/gorm"
 )
-
 type User struct {
 	ID        string         `gorm:"primaryKey" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -16,9 +13,9 @@ type User struct {
 	Name      string         `json:"name"`
 	Avatar    string         `json:"avatar"`
 	IsAdmin   bool           `json:"is_admin"`
+	APIKey    string         `json:"api_key" gorm:"uniqueIndex"`
 	Projects  []Project      `gorm:"foreignKey:OwnerID" json:"projects"`
 }
-
 type Project struct {
 	ID             string         `gorm:"primaryKey" json:"id"`
 	CreatedAt      time.Time      `json:"created_at"`
@@ -37,14 +34,12 @@ type Project struct {
 	Deployments    []Deployment   `gorm:"foreignKey:ProjectID" json:"deployments"`
 	EnvVars        []EnvVar       `gorm:"foreignKey:ProjectID" json:"env_vars"`
 }
-
 type EnvVar struct {
 	gorm.Model
 	ProjectID string `json:"project_id"`
 	Key       string `json:"key"`
 	Value     string `json:"value"`
 }
-
 type Deployment struct {
 	ID        string         `gorm:"primaryKey" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -57,12 +52,13 @@ type Deployment struct {
 	Logs      string         `json:"logs"`
 	URL       string         `json:"url"`
 }
-
 type Database struct {
 	gorm.Model
-	Name    string  `json:"name"`
-	Type    string  `json:"type"`
-	Status  string  `json:"status"`
-	OwnerID string  `json:"owner_id"`
-	SizeMB  float64 `json:"size_mb"`
+	Name        string  `json:"name"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	OwnerID     string  `json:"owner_id"`
+	SizeMB      float64 `json:"size_mb"`
+	Port        int     `json:"port"`
+	ContainerID string  `json:"container_id"`
 }

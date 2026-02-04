@@ -5,11 +5,11 @@ import { token } from './auth';
 const API_BASE = "http://localhost:8080";
 
 export interface DeployResponse {
-  status: string;
-  app_name: string;
-  port: number;
-  url: string;
-  message: string;
+	status: string;
+	app_name: string;
+	port: number;
+	url: string;
+	message: string;
 }
 
 export interface AuthResponse {
@@ -33,6 +33,20 @@ export interface Deployment {
 	updated_at: string;
 }
 
+export interface Database {
+	ID: number;
+	CreatedAt: string;
+	UpdatedAt: string;
+	DeletedAt: string | null;
+	name: string;
+	type: string;
+	status: string;
+	owner_id: string;
+	size_mb: number;
+	container_id: string;
+	port: number;
+}
+
 export interface Project {
 	id: string;
 	name: string;
@@ -43,6 +57,9 @@ export interface Project {
 	webhook_secret: string;
 	git_token?: string;
 	runtime?: string;
+	build_command?: string;
+	start_command?: string;
+	install_command?: string;
 }
 
 export async function getProject(id: string): Promise<Project | null> {
@@ -126,6 +143,18 @@ export async function createProject(
 	}
 }
 
+export async function updateProject(id: string, data: Partial<Project>): Promise<Project | null> {
+	try {
+		return await fetchWithAuth(`/api/projects/${id}`, {
+			method: "PUT",
+			body: JSON.stringify(data),
+		});
+	} catch (e: any) {
+		toast.error(e.message);
+		return null;
+	}
+}
+
 export async function updateProjectEnv(id: string, envVars: Record<string, string>): Promise<boolean> {
 	try {
 		await fetchWithAuth(`/api/projects/${id}/env`, {
@@ -139,10 +168,11 @@ export async function updateProjectEnv(id: string, envVars: Record<string, strin
 	}
 }
 
-export async function redeployProject(id: string): Promise<boolean> {
+export async function redeployProject(id: string, commit?: string): Promise<boolean> {
 	try {
 		await fetchWithAuth(`/api/projects/${id}/redeploy`, {
 			method: "POST",
+			body: JSON.stringify({ commit }),
 		});
 		return true;
 	} catch (e: any) {
@@ -240,6 +270,18 @@ export async function createDatabase(name: string, type: string = "sqlite") {
 	}
 }
 
+export async function deleteDatabase(id: string) {
+	try {
+		await fetchWithAuth(`/api/storage/databases/${id}`, {
+			method: "DELETE",
+		});
+		return true;
+	} catch (e: any) {
+		toast.error(e.message);
+		return false;
+	}
+}
+
 export async function getAdminUsers() {
 	try {
 		return await fetchWithAuth("/api/admin/users");
@@ -266,6 +308,81 @@ export async function getAdminStats() {
 		return await fetchWithAuth("/api/admin/stats");
 	} catch (e: any) {
 		console.error(e);
+		return null;
+	}
+}
+
+export async function getProfile() {
+	try {
+		return await fetchWithAuth("/api/user/");
+	} catch (e: any) {
+		console.error(e);
+		return null;
+	}
+}
+
+export async function regenerateAPIKey() {
+	try {
+		return await fetchWithAuth("/api/user/key", {
+			method: "POST",
+		});
+	} catch (e: any) {
+		toast.error(e.message);
+		return null;
+	}
+}
+
+export async function getDatabaseCredentials(id: string) {
+	try {
+		return await fetchWithAuth(`/api/storage/databases/${id}/credentials`);
+	} catch (e: any) {
+		console.error(e);
+		return null;
+	}
+}
+
+export async function updateDatabaseCredentials(id: string, username: string, password: string) {
+	try {
+		return await fetchWithAuth(`/api/storage/databases/${id}/credentials`, {
+			method: "PUT",
+			body: JSON.stringify({ username, password }),
+		});
+	} catch (e: any) {
+		toast.error(e.message);
+		return null;
+	}
+}
+
+export async function updateDatabase(id: string, port: number) {
+	try {
+		return await fetchWithAuth(`/api/storage/databases/${id}`, {
+			method: "PUT",
+			body: JSON.stringify({ port }),
+		});
+	} catch (e: any) {
+		toast.error(e.message);
+		return null;
+	}
+}
+
+export async function stopDatabase(id: string) {
+	try {
+		return await fetchWithAuth(`/api/storage/databases/${id}/stop`, {
+			method: "POST",
+		});
+	} catch (e: any) {
+		toast.error(e.message);
+		return null;
+	}
+}
+
+export async function restartDatabase(id: string) {
+	try {
+		return await fetchWithAuth(`/api/storage/databases/${id}/restart`, {
+			method: "POST",
+		});
+	} catch (e: any) {
+		toast.error(e.message);
 		return null;
 	}
 }

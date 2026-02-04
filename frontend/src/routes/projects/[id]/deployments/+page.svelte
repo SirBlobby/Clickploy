@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from "svelte";
 	import { page } from "$app/stores";
-	import { getProject, type Project } from "$lib/api";
+	import { getProject, type Project, redeployProject } from "$lib/api";
 	import { Button } from "$lib/components/ui/button";
 	import {
 		Card,
@@ -20,7 +20,10 @@
 		CheckCircle2,
 		XCircle,
 		AlertCircle,
+		Play,
+		RotateCcw,
 	} from "@lucide/svelte";
+	import { toast } from "svelte-sonner";
 
 	let project = $state<Project | null>(null);
 	let loading = $state(true);
@@ -69,6 +72,21 @@
 				return AlertCircle;
 		}
 	}
+	async function handleRedeploy(commit?: string) {
+		if (!project) return;
+		toast.info(commit ? `Redeploying commit ${commit.substring(0, 7)}...` : "Starting redeployment...");
+		const success = await redeployProject(project.id.toString(), commit);
+		if (success) {
+			toast.success("Redeployment started!");
+			// Refresh project data to show new deployment
+			setTimeout(async () => {
+				if (project) {
+					const res = await getProject(project.id);
+					if (res) project = res;
+				}
+			}, 1000);
+		}
+	}
 </script>
 
 {#if loading}
@@ -84,6 +102,9 @@
 					History of your application builds.
 				</p>
 			</div>
+			<Button onclick={() => handleRedeploy()}>
+				<Play class="mr-2 h-4 w-4" /> Redeploy
+			</Button>
 		</div>
 
 		<Card class="border-border/60">
@@ -130,6 +151,7 @@
 									<GitCommit class="h-3.5 w-3.5 text-muted-foreground" />
 									<span
 										class="bg-muted px-2 py-0.5 rounded-md border border-border/50 text-foreground/80 font-mono"
+										title={deployment.commit}
 									>
 										{deployment.commit === "HEAD"
 											? "HEAD"
@@ -178,6 +200,17 @@
 									>
 										<Terminal class="h-3.5 w-3.5" />
 									</Button>
+									{#if deployment.commit !== "HEAD" && deployment.commit !== "MANUAL" && deployment.commit !== "WEBHOOK"}
+										<Button
+											variant="ghost"
+											size="icon"
+											class="h-7 w-7"
+											onclick={() => handleRedeploy(deployment.commit)}
+											title="Redeploy this version"
+										>
+											<RotateCcw class="h-3.5 w-3.5" />
+										</Button>
+									{/if}
 								</div>
 							</div>
 						{/each}

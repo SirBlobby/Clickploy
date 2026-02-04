@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { onMount } from "svelte";
-	import { listProjects, type Project } from "$lib/api";
+	import {
+		listProjects,
+		listDatabases,
+		type Project,
+		type Database,
+	} from "$lib/api";
 	import { Button } from "$lib/components/ui/button";
 	import {
 		Card,
@@ -23,14 +28,20 @@
 		ExternalLink,
 		Globe,
 		Server,
+		Database as DatabaseIcon,
 	} from "@lucide/svelte";
 
 	let projects = $state<Project[]>([]);
+	let databases = $state<Database[]>([]);
 	let loading = $state(true);
 
 	onMount(async () => {
-		const res = await listProjects();
-		if (res) projects = res;
+		const [projRes, dbRes] = await Promise.all([
+			listProjects(),
+			listDatabases(),
+		]);
+		if (projRes) projects = projRes;
+		if (dbRes) databases = dbRes;
 		loading = false;
 	});
 </script>
@@ -55,18 +66,24 @@
 				<CardHeader>
 					<CardTitle>Active Services</CardTitle>
 					<CardDescription>
-						Overview of deployed applications and their internal/external ports.
+						Overview of deployed applications and their
+						internal/external ports.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
-					{#if projects.length === 0}
+					{#if projects.length === 0 && databases.length === 0}
 						<div
 							class="flex flex-col items-center justify-center py-10 text-center"
 						>
-							<Network class="h-10 w-10 text-muted-foreground mb-4" />
-							<h3 class="text-lg font-medium">No services found</h3>
+							<Network
+								class="h-10 w-10 text-muted-foreground mb-4"
+							/>
+							<h3 class="text-lg font-medium">
+								No services found
+							</h3>
 							<p class="text-muted-foreground">
-								Deploy a project to populate the network map.
+								Deploy a project or create a database to
+								populate the network map.
 							</p>
 						</div>
 					{:else}
@@ -78,15 +95,21 @@
 									<TableHead>Port</TableHead>
 									<TableHead>URL</TableHead>
 									<TableHead>Status</TableHead>
-									<TableHead class="text-right">Action</TableHead>
+									<TableHead class="text-right"
+										>Action</TableHead
+									>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{#each projects as project}
 									<TableRow>
 										<TableCell class="font-medium">
-											<div class="flex items-center gap-2">
-												<Server class="h-4 w-4 text-muted-foreground" />
+											<div
+												class="flex items-center gap-2"
+											>
+												<Server
+													class="h-4 w-4 text-muted-foreground"
+												/>
 												<a
 													href={`/projects/${project.id}`}
 													class="hover:underline"
@@ -95,11 +118,15 @@
 												</a>
 											</div>
 										</TableCell>
-										<TableCell class="font-mono text-xs">localhost</TableCell>
+										<TableCell class="font-mono text-xs"
+											>localhost</TableCell
+										>
 										<TableCell class="font-mono text-xs"
 											>{project.port}</TableCell
 										>
-										<TableCell class="font-mono text-xs text-muted-foreground">
+										<TableCell
+											class="font-mono text-xs text-muted-foreground"
+										>
 											http://localhost:{project.port}
 										</TableCell>
 										<TableCell>
@@ -119,6 +146,47 @@
 											>
 												<ExternalLink class="h-4 w-4" />
 											</Button>
+										</TableCell>
+									</TableRow>
+								{/each}
+								{#each databases as db}
+									<TableRow>
+										<TableCell class="font-medium">
+											<div
+												class="flex items-center gap-2"
+											>
+												<DatabaseIcon
+													class="h-4 w-4 text-muted-foreground"
+												/>
+												<a
+													href="/storage"
+													class="hover:underline"
+												>
+													{db.name}
+												</a>
+											</div>
+										</TableCell>
+										<TableCell class="font-mono text-xs"
+											>localhost</TableCell
+										>
+										<TableCell class="font-mono text-xs"
+											>{db.port}</TableCell
+										>
+										<TableCell
+											class="font-mono text-xs text-muted-foreground"
+										>
+											{db.type}://localhost:{db.port}
+										</TableCell>
+										<TableCell>
+											<span
+												class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold
+												bg-green-500/15 text-green-500 border-transparent capitalize"
+											>
+												{db.status}
+											</span>
+										</TableCell>
+										<TableCell class="text-right">
+											<!-- No external link action for now -->
 										</TableCell>
 									</TableRow>
 								{/each}

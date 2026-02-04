@@ -539,7 +539,7 @@
 										</CardTitle>
 										<CardDescription class="flex items-center gap-1" >
 											<Github class="h-3 w-3" />
-											<a href={project.repo_url} target="_blank">{new URL(project.repo_url).pathname.slice(1)}</a>
+											<a class="underline" href={project.repo_url} target="_blank">{new URL(project.repo_url).pathname.slice(1)}</a>
 										</CardDescription>
 									</div>
 									<span
@@ -592,7 +592,7 @@
 										<span class="font-medium text-foreground truncate">
 											{latestDeployment
 												? new Date(
-														latestDeployment.CreatedAt,
+														latestDeployment.created_at,
 													).toLocaleDateString()
 												: "Never"}
 										</span>
