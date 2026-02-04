@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, tick } from "svelte";
 	import { page } from "$app/stores";
-	import { getProject, type Project, redeployProject } from "$lib/api";
+	import { getProject, type Project, redeployProject, stopProject } from "$lib/api";
 	import { Button } from "$lib/components/ui/button";
 	import { Card } from "$lib/components/ui/card";
 	import {
@@ -15,6 +15,7 @@
 		Check,
 		Copy,
 		GitCommit,
+		Square,
 	} from "@lucide/svelte";
 	import { toast } from "svelte-sonner";
 
@@ -66,6 +67,15 @@
 		const success = await redeployProject(project.id.toString());
 		if (success) {
 			toast.success("Redeployment started!");
+			setTimeout(loadProject, 1000);
+		}
+	}
+
+	async function handleStop() {
+		if (!project) return;
+		toast.info("Stopping project...");
+		const success = await stopProject(project.id.toString());
+		if (success) {
 			setTimeout(loadProject, 1000);
 		}
 	}
@@ -180,6 +190,16 @@
 							<Play class="h-3.5 w-3.5 mr-2" /> Redeploy
 						{/if}
 					</Button>
+					{#if status === "live" || status === "building"}
+						<Button
+							variant="outline"
+							size="sm"
+							class="h-8"
+							onclick={handleStop}
+						>
+							<Square class="h-3.5 w-3.5 mr-2" /> Stop
+						</Button>
+					{/if}
 					<Button
 						href={latestDeployment?.url}
 						target="_blank"

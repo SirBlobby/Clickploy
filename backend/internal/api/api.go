@@ -77,6 +77,29 @@ func (h *Handler) handleDeploy(c *gin.Context) {
 func (h *Handler) RegisterSystemRoutes(r *gin.Engine) {
 	r.GET("/api/system/status", h.handleSystemStatus)
 }
+
+func (h *Handler) RegisterFrontendRoutes(r *gin.Engine) {
+	// Serve static files from the build directory
+	r.Static("/_app", "./dist/_app")
+	r.StaticFile("/robots.txt", "./dist/robots.txt")
+
+	// Serve index.html for root
+	r.GET("/", func(c *gin.Context) {
+		c.File("./dist/index.html")
+	})
+
+	// Handle SPA client-side routing: if no other route matches, serve index.html
+	// But ensure we don't serve HTML for API 404s
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if len(path) >= 4 && path[:4] == "/api" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "API route not found"})
+			return
+		}
+		c.File("./dist/index.html")
+	})
+}
+
 func (h *Handler) handleSystemStatus(c *gin.Context) {
 	localIP := GetLocalIP()
 	publicIP := GetPublicIP()

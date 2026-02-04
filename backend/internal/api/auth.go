@@ -83,7 +83,7 @@ func (h *Handler) login(c *gin.Context) {
 func (h *Handler) RegisterUserRoutes(r *gin.Engine) {
 	userGroup := r.Group("/api/user", AuthMiddleware())
 	{
-		userGroup.GET("/", h.getMe)
+		userGroup.GET("", h.getMe)
 		userGroup.PUT("/profile", h.updateProfile)
 		userGroup.PUT("/password", h.updatePassword)
 		userGroup.POST("/key", h.regenerateAPIKey)

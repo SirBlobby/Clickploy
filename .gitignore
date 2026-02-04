@@ -30,3 +30,5 @@ bun.lock
 .svelte-kit
 
 target/
+dist/
+data/

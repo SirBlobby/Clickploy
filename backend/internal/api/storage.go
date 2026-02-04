@@ -229,13 +229,18 @@ func (h *Handler) handleGetDatabaseCredentials(c *gin.Context) {
 		return
 	}
 	var username, password string
+	fmt.Printf("Debug: Container env vars count: %d\n", len(envVars))
 	for _, env := range envVars {
-		if len(env) > 25 && env[:25] == "MONGO_INITDB_ROOT_USERNAME=" {
-			username = env[25:]
-		} else if len(env) > 25 && env[:25] == "MONGO_INITDB_ROOT_PASSWORD=" {
-			password = env[25:]
+		fmt.Printf("Debug: env var: %s\n", env)
+		if len(env) > 26 && env[:26] == "MONGO_INITDB_ROOT_USERNAME=" {
+			username = env[26:]
+			fmt.Printf("Debug: Found username: %s\n", username)
+		} else if len(env) > 26 && env[:26] == "MONGO_INITDB_ROOT_PASSWORD=" {
+			password = env[26:]
+			fmt.Printf("Debug: Found password: %s\n", password)
 		}
 	}
+	fmt.Printf("Debug: Final username=%s, password=%s\n", username, password)
 	uri := fmt.Sprintf("mongodb://%s:%s@localhost:%d/?authSource=admin", username, password, database.Port)
 	publicUri := fmt.Sprintf("mongodb://%s:%s@<HOST>:%d/?authSource=admin", username, password, database.Port)
 	c.JSON(http.StatusOK, gin.H{
@@ -273,10 +278,10 @@ func (h *Handler) handleUpdateDatabaseCredentials(c *gin.Context) {
 	var currentUser, currentPass string
 	var otherEnv []string
 	for _, env := range envVars {
-		if len(env) > 25 && env[:25] == "MONGO_INITDB_ROOT_USERNAME=" {
-			currentUser = env[25:]
-		} else if len(env) > 25 && env[:25] == "MONGO_INITDB_ROOT_PASSWORD=" {
-			currentPass = env[25:]
+		if len(env) > 26 && env[:26] == "MONGO_INITDB_ROOT_USERNAME=" {
+			currentUser = env[26:]
+		} else if len(env) > 26 && env[:26] == "MONGO_INITDB_ROOT_PASSWORD=" {
+			currentPass = env[26:]
 		} else {
 			otherEnv = append(otherEnv, env)
 		}

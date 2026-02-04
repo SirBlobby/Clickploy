@@ -26,6 +26,7 @@ func (h *Handler) RegisterProjectRoutes(r *gin.Engine) {
 		protected.PUT("/projects/:id", h.updateProject)
 		protected.PUT("/projects/:id/env", h.updateProjectEnv)
 		protected.POST("/projects/:id/redeploy", h.redeployProject)
+		protected.POST("/projects/:id/stop", h.stopProject)
 		protected.GET("/activity", h.getActivity)
 	}
 }
@@ -310,7 +311,9 @@ func (h *Handler) resolveEnvVars(ctx context.Context, userID string, envVars map
 func (h *Handler) listProjects(c *gin.Context) {
 	userID, _ := c.Get("userID")
 	var projects []models.Project
-	if result := db.DB.Preload("Deployments").Where("owner_id = ?", userID).Find(&projects); result.Error != nil {
+	if result := db.DB.Preload("Deployments", func(db *gorm.DB) *gorm.DB {
+		return db.Order("deployments.created_at desc")
+	}).Where("owner_id = ?", userID).Find(&projects); result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
 		return
 	}
@@ -327,4 +330,31 @@ func (h *Handler) getProject(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, project)
+}
+
+func (h *Handler) stopProject(c *gin.Context) {
+	userID, _ := c.Get("userID")
+	projectID := c.Param("id")
+	
+	var project models.Project
+	if result := db.DB.Where("id = ? AND owner_id = ?", projectID, userID).First(&project); result.Error != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		return
+	}
+	
+	// Stop the container using the project name
+	err := h.deployer.StopContainer(c.Request.Context(), project.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to stop container: %v", err)})
+		return
+	}
+	
+	// Update the latest deployment status to stopped
+	var deployment models.Deployment
+	if result := db.DB.Where("project_id = ?", project.ID).Order("created_at desc").First(&deployment); result.Error == nil {
+		deployment.Status = "stopped"
+		db.DB.Save(&deployment)
+	}
+	
+	c.JSON(http.StatusOK, gin.H{"status": "stopped", "message": "Container stopped successfully"})
 }

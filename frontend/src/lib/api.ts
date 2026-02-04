@@ -181,6 +181,19 @@ export async function redeployProject(id: string, commit?: string): Promise<bool
 	}
 }
 
+export async function stopProject(id: string): Promise<boolean> {
+	try {
+		await fetchWithAuth(`/api/projects/${id}/stop`, {
+			method: "POST",
+		});
+		toast.success("Project stopped successfully");
+		return true;
+	} catch (e: any) {
+		toast.error(e.message);
+		return false;
+	}
+}
+
 export async function listProjects(): Promise<Project[] | null> {
 	try {
 		return await fetchWithAuth("/api/projects");

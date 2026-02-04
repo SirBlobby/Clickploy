@@ -1,15 +1,17 @@
 package main
+
 import (
-	"log"
-	"time"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"clickploy/internal/api"
 	"clickploy/internal/builder"
 	"clickploy/internal/db"
 	"clickploy/internal/deployer"
 	"clickploy/internal/ports"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"log"
+	"time"
 )
+
 func main() {
 	db.Init(".")
 	pm := ports.NewManager(2000, 60000)
@@ -36,6 +38,7 @@ func main() {
 	handler.RegisterSystemRoutes(r)
 	handler.RegisterStorageRoutes(r)
 	handler.RegisterAdminRoutes(r)
+	handler.RegisterFrontendRoutes(r)
 	log.Println("Starting Clickploy Backend on :8080")
 	if err := r.Run(":8080"); err != nil {
 		log.Fatalf("Server failed: %v", err)
