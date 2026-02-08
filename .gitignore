@@ -32,3 +32,5 @@ bun.lock
 target/
 dist/
 data/
+
+Cargo.lock

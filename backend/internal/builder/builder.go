@@ -1,4 +1,5 @@
 package builder
+
 import (
 	"fmt"
 	"io"
@@ -8,7 +9,27 @@ import (
 	"path/filepath"
 	"strings"
 )
+
 type Builder struct{}
+
+func EnsureNixpacksInstalled() error {
+	cmd := exec.Command("nixpacks", "--version")
+	if err := cmd.Run(); err == nil {
+		return nil // Nixpacks is already installed
+	}
+
+	fmt.Println("Nixpacks not found. Installing...")
+	installCmd := exec.Command("bash", "-c", "curl -sSL https://nixpacks.com/install.sh | bash")
+	installCmd.Stdout = os.Stdout
+	installCmd.Stderr = os.Stderr
+	if err := installCmd.Run(); err != nil {
+		return fmt.Errorf("failed to install nixpacks: %w", err)
+	}
+
+	fmt.Println("Nixpacks installed successfully.")
+	return nil
+}
+
 func NewBuilder() *Builder {
 	return &Builder{}
 }
@@ -65,6 +86,23 @@ func (b *Builder) Build(repoURL, targetCommit, appName, gitToken, buildCmd, star
 	if runtime == "" {
 		runtime = "nodejs"
 	}
+
+	imageName := strings.ToLower(appName)
+
+	// Dockerfile runtime: bypass nixpacks entirely and build via docker
+	if runtime == "dockerfile" {
+		fmt.Fprintf(logWriter, "\n>>> Detected Dockerfile runtime. Building Docker image %s...\n", imageName)
+		dockerCmd := exec.Command("docker", "build", "-t", imageName, ".")
+		dockerCmd.Dir = workDir
+		dockerCmd.Stdout = logWriter
+		dockerCmd.Stderr = logWriter
+		if err := dockerCmd.Run(); err != nil {
+			return "", "", fmt.Errorf("docker build failed: %w", err)
+		}
+		fmt.Fprintf(logWriter, "\n>>> Build successful!\n")
+		return imageName, commitHash, nil
+	}
+
 	var nixPkgs string
 	var defaultInstall, defaultBuild, defaultStart string
 	switch runtime {
@@ -117,7 +155,7 @@ cmd = "%s"
 			return "", "", fmt.Errorf("failed to write nixpacks.toml: %w", err)
 		}
 	}
-	imageName := strings.ToLower(appName)
+
 	fmt.Fprintf(logWriter, "\n>>> Starting Nixpacks build for %s...\n", imageName)
 	args := []string{"build", ".", "--name", imageName, "--no-cache"}
 	for k, v := range envVars {

@@ -125,7 +125,7 @@
 									class="col-span-2 md:col-span-3 flex items-center justify-end gap-3 text-right"
 								>
 									<span class="hidden md:inline text-xs text-muted-foreground">
-										{new Date(activity.CreatedAt).toLocaleString(undefined, {
+										{new Date(activity.created_at).toLocaleString(undefined, {
 											month: "short",
 											day: "numeric",
 											hour: "2-digit",

@@ -13,6 +13,10 @@ import (
 )
 
 func main() {
+	if err := builder.EnsureNixpacksInstalled(); err != nil {
+		log.Fatalf("Failed to ensure nixpacks is installed: %v", err)
+	}
+
 	db.Init(".")
 	pm := ports.NewManager(2000, 60000)
 	buildr := builder.NewBuilder()

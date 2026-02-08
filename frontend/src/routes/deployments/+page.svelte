@@ -109,19 +109,21 @@
 										</span>
 									</TableCell>
 									<TableCell class="hidden md:table-cell text-muted-foreground">
-										{new Date(deploy.CreatedAt).toLocaleDateString()}
-										{new Date(deploy.CreatedAt).toLocaleTimeString()}
+										{new Date(deploy.created_at).toLocaleDateString()}
+										{new Date(deploy.created_at).toLocaleTimeString()}
 									</TableCell>
 									<TableCell class="text-right">
-										<Button
-											variant="ghost"
-											size="sm"
-											href={deploy.url}
-											target="_blank"
-											disabled={!deploy.url}
-										>
-											<ExternalLink class="h-4 w-4" />
-										</Button>
+										{#if deploy.status === 'live'}
+											<Button
+												variant="ghost"
+												size="sm"
+												href={deploy.url}
+												target="_blank"
+												disabled={!deploy.url}
+											>
+												<ExternalLink class="h-4 w-4" />
+											</Button>
+										{/if}
 									</TableCell>
 								</TableRow>
 							{/each}

@@ -3,6 +3,7 @@
 	import {
 		listProjects,
 		listDatabases,
+		getSystemStatus,
 		type Project,
 		type Database,
 	} from "$lib/api";
@@ -33,15 +34,18 @@
 
 	let projects = $state<Project[]>([]);
 	let databases = $state<Database[]>([]);
+	let systemStatus = $state<{ local_ip: string; public_ip: string } | null>(null);
 	let loading = $state(true);
 
 	onMount(async () => {
-		const [projRes, dbRes] = await Promise.all([
+		const [projRes, dbRes, sysRes] = await Promise.all([
 			listProjects(),
 			listDatabases(),
+			getSystemStatus(),
 		]);
 		if (projRes) projects = projRes;
 		if (dbRes) databases = dbRes;
+		if (sysRes) systemStatus = sysRes;
 		loading = false;
 	});
 </script>
@@ -118,34 +122,47 @@
 												</a>
 											</div>
 										</TableCell>
-										<TableCell class="font-mono text-xs"
-											>localhost</TableCell
-										>
+								<TableCell class="font-mono text-xs">
+									{systemStatus?.local_ip ?? "—"}
+								</TableCell>
 										<TableCell class="font-mono text-xs"
 											>{project.port}</TableCell
 										>
-										<TableCell
-											class="font-mono text-xs text-muted-foreground"
-										>
-											http://localhost:{project.port}
-										</TableCell>
+								<TableCell
+									class="font-mono text-xs text-muted-foreground"
+								>
+									{systemStatus?.local_ip
+										? `http://${systemStatus.local_ip}:${project.port}`
+										: "—"}
+								</TableCell>
 										<TableCell>
-											<span
-												class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold
-												bg-green-500/15 text-green-500 border-transparent"
-											>
-												Active
-											</span>
+											{#if project.deployments?.[0]?.status === 'live'}
+												<span
+													class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold
+													bg-green-500/15 text-green-500 border-transparent"
+												>
+													Active
+												</span>
+											{:else}
+												<span
+													class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold
+													bg-red-500/15 text-red-500 border-transparent"
+												>
+													Stopped
+												</span>
+											{/if}
 										</TableCell>
 										<TableCell class="text-right">
-											<Button
-												variant="ghost"
-												size="sm"
-												href={`http://localhost:${project.port}`}
-												target="_blank"
-											>
-												<ExternalLink class="h-4 w-4" />
-											</Button>
+								{#if project.deployments?.[0]?.status === 'live' && systemStatus?.local_ip}
+									<Button
+										variant="ghost"
+										size="sm"
+										href={`http://${systemStatus.local_ip}:${project.port}`}
+										target="_blank"
+									>
+										<ExternalLink class="h-4 w-4" />
+									</Button>
+								{/if}
 										</TableCell>
 									</TableRow>
 								{/each}
@@ -166,17 +183,19 @@
 												</a>
 											</div>
 										</TableCell>
-										<TableCell class="font-mono text-xs"
-											>localhost</TableCell
-										>
+							<TableCell class="font-mono text-xs">
+								{systemStatus?.local_ip ?? "—"}
+							</TableCell>
 										<TableCell class="font-mono text-xs"
 											>{db.port}</TableCell
 										>
-										<TableCell
-											class="font-mono text-xs text-muted-foreground"
-										>
-											{db.type}://localhost:{db.port}
-										</TableCell>
+							<TableCell
+								class="font-mono text-xs text-muted-foreground"
+							>
+								{systemStatus?.local_ip
+									? `${db.type}://${systemStatus.local_ip}:${db.port}`
+									: "—"}
+							</TableCell>
 										<TableCell>
 											<span
 												class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold

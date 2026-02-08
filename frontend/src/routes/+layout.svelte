@@ -10,11 +10,13 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<Navbar />
-<Toaster position="top-right" richColors />
-<div class="min-h-screen bg-background text-foreground flex flex-col">
-	<div class="flex-1">
-		{@render children()}
+<div class="h-screen flex flex-col overflow-hidden bg-background text-foreground">
+	<Navbar />
+	<Toaster position="top-right" richColors />
+	<div class="flex-1 flex flex-col min-h-0 overflow-hidden">
+		<main class="flex-1 flex flex-col min-h-0 overflow-y-auto">
+			{@render children()}
+		</main>
+		<!-- <Footer /> -->
 	</div>
-	<Footer />
 </div>
